@@ -1,13 +1,266 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ================= ENUMS =================
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum Species {
+  DOG
+  CAT
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReminderStatus {
+  PENDING
+  DUE
+  CONTACTED
+  DISMISSED
+}
+
+enum ContactMethod {
+  PHONE
+  ZALO
+  OTHER
+}
+
+enum ActivityType {
+  CALL
+  ZALO
+  NOTE
+}
+
+// ================= MODELS =================
+
+// 1. users
+model User {
+  id           Int        @id @default(autoincrement()) @map("user_id")
+  phone        String     @unique @db.VarChar(20)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  role         Role
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  customer   Customer?
+  activities CrmActivity[]
+
+  @@map("users")
+}
+
+// 2. customers
+model Customer {
+  id        Int      @id @default(autoincrement()) @map("customer_id")
+  userId    Int?     @unique @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id])
+  fullName  String   @map("full_name") @db.VarChar(100)
+  phone     String   @db.VarChar(20)
+  address   String?  @db.VarChar(255)
+  note      String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pets       Pet[]
+  bookings   Booking[]
+  reminders  PetReminder[]
+  activities CrmActivity[]
+
+  @@map("customers")
+}
+
+// 3. pets
+model Pet {
+  id          Int      @id @default(autoincrement()) @map("pet_id")
+  customerId  Int      @map("customer_id")
+  customer    Customer @relation(fields: [customerId], references: [id])
+  name        String   @db.VarChar(100)
+  species     Species
+  breed       String?  @db.VarChar(100)
+  weight      Decimal  @db.Decimal(5, 2)
+  allergyNote String?  @map("allergy_note") @db.Text
+  specialNote String?  @map("special_note") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  bookings   Booking[]
+  reminders  PetReminder[]
+  activities CrmActivity[]
+
+  @@map("pets")
+}
+
+// 4. services
+model Service {
+  id                Int           @id @default(autoincrement()) @map("service_id")
+  serviceName       String        @map("service_name") @db.VarChar(100)
+  description       String?       @db.Text
+  estimatedDuration Int?          @map("estimated_duration")
+  status            ServiceStatus @default(ACTIVE)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  prices          ServicePrice[]
+  bookingServices BookingService[]
+  reminderConfigs ReminderConfig[]
+  reminders       PetReminder[]
+
+  @@map("services")
+}
+
+// 5. service_prices
+model ServicePrice {
+  id            Int           @id @default(autoincrement()) @map("service_price_id")
+  serviceId     Int           @map("service_id")
+  service       Service       @relation(fields: [serviceId], references: [id])
+  species       Species?
+  minWeight     Decimal       @map("min_weight") @db.Decimal(5, 2)
+  maxWeight     Decimal?      @map("max_weight") @db.Decimal(5, 2)
+  price         Decimal       @db.Decimal(12, 2)
+  effectiveFrom DateTime?     @map("effective_from")
+  effectiveTo   DateTime?     @map("effective_to")
+  status        ServiceStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  bookingServices BookingService[]
+
+  @@map("service_prices")
+}
+
+// 6. bookings
+model Booking {
+  id             Int           @id @default(autoincrement()) @map("booking_id")
+  customerId     Int           @map("customer_id")
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  petId          Int           @map("pet_id")
+  pet            Pet           @relation(fields: [petId], references: [id])
+  bookingDate    DateTime      @map("booking_date")
+  status         BookingStatus
+  note           String?       @db.Text
+  estimatedTotal Decimal?      @map("estimated_total") @db.Decimal(12, 2)
+  finalTotal     Decimal?      @map("final_total") @db.Decimal(12, 2)
+  discountAmount Decimal       @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  completedAt    DateTime?     @map("completed_at")
+  cancelledAt    DateTime?     @map("cancelled_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  services   BookingService[]
+  surcharges BookingSurcharge[]
+  reminders  PetReminder[]
+
+  @@map("bookings")
+}
+
+// 7. booking_services
+model BookingService {
+  id                Int          @id @default(autoincrement()) @map("booking_service_id")
+  bookingId         Int          @map("booking_id")
+  booking           Booking      @relation(fields: [bookingId], references: [id])
+  serviceId         Int          @map("service_id")
+  service           Service      @relation(fields: [serviceId], references: [id])
+  servicePriceId    Int          @map("service_price_id")
+  servicePrice      ServicePrice @relation(fields: [servicePriceId], references: [id])
+  petWeightSnapshot Decimal      @map("pet_weight_snapshot") @db.Decimal(5, 2)
+  basePrice         Decimal      @map("base_price") @db.Decimal(12, 2)
+  finalPrice        Decimal?     @map("final_price") @db.Decimal(12, 2)
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  surcharges BookingSurcharge[]
+
+  @@map("booking_services")
+}
+
+// 8. booking_surcharges
+model BookingSurcharge {
+  id               Int             @id @default(autoincrement()) @map("surcharge_id")
+  bookingId        Int             @map("booking_id")
+  booking          Booking         @relation(fields: [bookingId], references: [id])
+  bookingServiceId Int?            @map("booking_service_id")
+  bookingService   BookingService? @relation(fields: [bookingServiceId], references: [id])
+  surchargeName    String          @map("surcharge_name") @db.VarChar(100)
+  amount           Decimal         @db.Decimal(12, 2)
+  note             String?         @db.VarChar(255)
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  @@map("booking_surcharges")
+}
+
+// 9. reminder_configs
+model ReminderConfig {
+  id           Int           @id @default(autoincrement()) @map("reminder_config_id")
+  serviceId    Int           @map("service_id")
+  service      Service       @relation(fields: [serviceId], references: [id])
+  reminderDays Int           @map("reminder_days")
+  status       ServiceStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@map("reminder_configs")
+}
+
+// 10. pet_reminders
+model PetReminder {
+  id            Int            @id @default(autoincrement()) @map("reminder_id")
+  petId         Int            @map("pet_id")
+  pet           Pet            @relation(fields: [petId], references: [id])
+  customerId    Int            @map("customer_id")
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  bookingId     Int            @map("booking_id")
+  booking       Booking        @relation(fields: [bookingId], references: [id])
+  serviceId     Int            @map("service_id")
+  service       Service        @relation(fields: [serviceId], references: [id])
+  completedDate DateTime       @map("completed_date")
+  reminderDate  DateTime       @map("reminder_date")
+  status        ReminderStatus
+  contactedAt   DateTime?      @map("contacted_at")
+  contactMethod ContactMethod? @map("contact_method")
+  note          String?        @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  activities CrmActivity[]
+
+  @@map("pet_reminders")
+}
+
+// 11. crm_activities
+model CrmActivity {
+  id         Int          @id @default(autoincrement()) @map("activity_id")
+  customerId Int          @map("customer_id")
+  customer   Customer     @relation(fields: [customerId], references: [id])
+  petId      Int?         @map("pet_id")
+  pet        Pet?         @relation(fields: [petId], references: [id])
+  reminderId Int?         @map("reminder_id")
+  reminder   PetReminder? @relation(fields: [reminderId], references: [id])
+  type       ActivityType
+  content    String?      @db.Text
+  createdBy  Int          @map("created_by")
+  user       User         @relation(fields: [createdBy], references: [id])
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@map("crm_activities")
 }
