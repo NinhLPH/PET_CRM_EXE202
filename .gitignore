@@ -1,0 +1,26 @@
+# Dependencies & builds
+/node_modules/
+/apps/*/node_modules/
+/apps/*/dist/
+/apps/*/coverage/
+*.tsbuildinfo
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and runtime
+*.log
+logs/
+pids/
+*.pid
+*.pid.lock
+
+# IDEs and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
