@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { BookingsService } from './bookings.service';
-import { BookingsController } from './bookings.controller';
+import { PrismaModule } from '../prisma/prisma.module';
+import { AdminBookingsApiController, AdminDashboardApiController, BookingsApiController } from './bookings.controller';
+import { BookingWorkflowService } from './bookings.service';
 
 @Module({
-  controllers: [BookingsController],
-  providers: [BookingsService],
+  imports: [PrismaModule],
+  controllers: [BookingsApiController, AdminDashboardApiController, AdminBookingsApiController],
+  providers: [BookingWorkflowService],
 })
 export class BookingsModule {}

@@ -1,34 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { Admin } from '../common/common';
+import type { ActorRequest } from '../common/common';
+import { ActivityDto } from './dto/activities.dto';
 import { ActivitiesService } from './activities.service';
-import { CreateActivityDto } from './dto/create-activity.dto';
-import { UpdateActivityDto } from './dto/update-activity.dto';
 
-@Controller('activities')
-export class ActivitiesController {
+@Admin()
+@ApiTags('admin customers')
+@ApiCookieAuth()
+@Controller('admin/customers')
+export class AdminCustomerActivitiesApiController {
   constructor(private readonly activitiesService: ActivitiesService) {}
-
-  @Post()
-  create(@Body() createActivityDto: CreateActivityDto) {
-    return this.activitiesService.create(createActivityDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.activitiesService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.activitiesService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateActivityDto: UpdateActivityDto) {
-    return this.activitiesService.update(+id, updateActivityDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.activitiesService.remove(+id);
-  }
+  @Get(':id/activities') activities(@Param('id') customerId: string, @Query() query: { page?: string; limit?: string }) { return this.activitiesService.activities(customerId, query); }
+  @Post(':id/activities') addActivity(@Param('id') customerId: string, @Req() request: ActorRequest, @Body() body: ActivityDto) { return this.activitiesService.addActivity(customerId, request.actor, body); }
 }
