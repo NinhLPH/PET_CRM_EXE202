@@ -54,7 +54,7 @@ export class AuthWorkflowService {
     )
       throw new BadRequestException('Dữ liệu đăng ký không hợp lệ');
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-phone:${body.phone}`}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-phone:${body.phone}`}, 0))`;
       if (await tx.user.findUnique({ where: { phone: body.phone } }))
         throw new ConflictException('Số điện thoại đã có tài khoản');
       const matches = await tx.customer.findMany({

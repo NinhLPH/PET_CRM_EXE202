@@ -54,7 +54,7 @@ export class ServicesService {
     const service = await this.service(serviceId);
     if (status === 'ACTIVE') await this.checkServiceName(service.serviceName, service.id);
     return this.db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`service:${service.id}`}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`service:${service.id}`}, 0))`;
       if (status === 'ACTIVE' && !(await tx.servicePrice.count({ where: { serviceId: service.id, status: 'ACTIVE', species: { not: null } } })))
         throw new ConflictException('Dịch vụ cần ít nhất một khoảng giá Active');
       return tx.service.update({ where: { id: service.id }, data: { status } });
@@ -93,7 +93,7 @@ export class ServicesService {
   }
 
   private async lockPrice(tx: Prisma.TransactionClient, serviceId: bigint, species: Species) {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${serviceId}:${species}`}, 0))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${serviceId}:${species}`}, 0))`;
   }
 
   private async checkOverlap(tx: Prisma.TransactionClient, serviceId: bigint, body: PriceDto, except?: bigint) {
@@ -148,7 +148,7 @@ export class ServicesService {
   async putReminderConfig(serviceId: string, body: ReminderConfigDto) {
     const service = await this.service(serviceId);
     return this.db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`reminder:${service.id}`}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`reminder:${service.id}`}, 0))`;
       const existing = await tx.reminderConfig.findFirst({ where: { serviceId: service.id, status: 'ACTIVE' } });
       if (existing) return tx.reminderConfig.update({ where: { id: existing.id }, data: { reminderDays: body.reminderDays } });
       return tx.reminderConfig.create({ data: { serviceId: service.id, reminderDays: body.reminderDays } });

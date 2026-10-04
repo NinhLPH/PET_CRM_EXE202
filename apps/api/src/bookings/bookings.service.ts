@@ -92,13 +92,13 @@ export class BookingWorkflowService {
         const pet = await tx.pet.findUnique({ where: { id: id(body.petId) } });
         if (!pet || pet.customerId !== actor.customerId)
           throw new ForbiddenException('Pet không thuộc tài khoản');
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`service:${body.serviceId}`}, 0))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`service:${body.serviceId}`}, 0))`;
         const service = await tx.service.findUnique({
           where: { id: id(body.serviceId) },
         });
         if (!service || service.status !== 'ACTIVE')
           throw new ConflictException('Dịch vụ không mở bán');
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${service.id}:${pet.species}`}, 0))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${service.id}:${pet.species}`}, 0))`;
         const prices = await tx.servicePrice.findMany({
           where: {
             serviceId: service.id,

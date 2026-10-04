@@ -18,6 +18,11 @@ pids/
 *.pid
 *.pid.lock
 
+# Browser test artifacts (fixture IDs and sanitized evidence remain local)
+/apps/web/test-results/
+/apps/web/playwright-report/
+/apps/web/e2e-artifacts/
+
 # IDEs and OS
 .idea/
 .vscode/*
