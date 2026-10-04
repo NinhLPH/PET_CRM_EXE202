@@ -23,6 +23,7 @@
     "test:debug": "node --inspect-brk --experimental-vm-modules -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "seed:admin": "node scripts/seed-admin.mjs",
+    "seed:demo": "node --experimental-strip-types prisma/seed.ts",
     "migration:preflight": "node scripts/preflight-migration.mjs",
     "migration:verify": "node scripts/verify-migrations.mjs"
   },
@@ -35,6 +36,7 @@
     "@nestjs/swagger": "^12.0.2",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dayjs": "^1.11.23",
@@ -47,6 +49,7 @@
     "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
@@ -64,6 +67,6 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }

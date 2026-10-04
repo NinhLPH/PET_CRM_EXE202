@@ -1,13 +1,21 @@
 # PetCare CRM API v1
 
-This backend implements the 45 MVP operations under the exact paths in `PetCare_CRM_Workflow_MVP_v1.docx`. Swagger UI is available at `/openapi` after startup. Route handlers and business services live in `src/api`.
+This backend implements the 45 MVP operations under the exact paths in `PetCare_CRM_Workflow_MVP_v1.docx`. Swagger UI is available at `/openapi` after startup. Route handlers and business services are organized by domain under `src`.
 
 ## Runtime
 
 - Node.js 24, PostgreSQL, Prisma 7.
 - Copy `.env.example` to `.env` and set `DATABASE_URL` and `CORS_ORIGINS` for the actual web origin. Session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Cross-origin browser calls must send credentials.
 - `npm install`, `npx prisma generate`, `npm run build`, then `npm run start:prod`.
-- Create the first ADMIN with `ADMIN_PHONE` and `ADMIN_PASSWORD` (12+ characters) set only for `npm run seed:admin`. The script refuses to promote an existing customer account.
+- Create the first ADMIN with `ADMIN_PHONE` and `ADMIN_PASSWORD` (12+ characters) using `npm run seed:admin`, or include it when running `npm run seed:demo`. The admin-only script refuses to promote an existing customer account.
+
+## Demo data
+
+Using a supported Node.js version (22.22.3+ or 24.15.0+), set `DATABASE_URL`, `ADMIN_PHONE`, `ADMIN_PASSWORD` (12+ characters), and `SEED_CUSTOMER_PASSWORD` (8+ characters) in `apps/api/.env`. From `apps/api`, check that `DATABASE_URL` points to your development database and that all tables already match `prisma/schema.prisma`, then run `npm run seed:demo`. This does not create tables or run migrations.
+
+The command creates an ADMIN if needed, 30 sample customers (10 with login accounts), 50 pets, 6 services with DOG/CAT price bands and reminder settings, 24 bookings across all statuses, and related reminders and CRM activities. The first 10 customer phone numbers are `0991000001` through `0991000010`; they use `SEED_CUSTOMER_PASSWORD` for login. The remaining customer numbers continue through `0991000030` and have no account. Re-running the command only creates missing demo records; it never resets passwords or overwrites existing records. If an existing phone or demo identifier belongs to other data, the command stops with an error.
+
+`seed:admin` remains available when you only need an ADMIN account. Do not run `seed:demo` against a production database.
 
 ## Database migration
 
