@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
+import { APP_GUARD } from '@nestjs/core';
+import { PrismaModule } from '../prisma/prisma.module';
+import { AuthRateGuard, SessionGuard } from '../common/common';
+import { AuthApiController } from './auth.controller';
+import { AuthWorkflowService } from './auth.service';
 
 @Module({
-  controllers: [AuthController],
-  providers: [AuthService],
+  imports: [PrismaModule],
+  controllers: [AuthApiController],
+  providers: [AuthWorkflowService, AuthRateGuard, { provide: APP_GUARD, useClass: SessionGuard }],
 })
 export class AuthModule {}

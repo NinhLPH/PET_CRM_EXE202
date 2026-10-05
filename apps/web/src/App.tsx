@@ -1,122 +1,54 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { useAuth } from './app/authContext';
+import { Layout } from './app/layout';
+import { features } from './app/features';
+import { LoginPage, RegisterPage } from './pages/v1/AuthPages';
+import { GuestLandingPage } from './pages/v1/GuestLandingPage';
+import { CustomerHome, CustomerProfile, CustomerPets, CustomerPetDetail } from './pages/v1/CustomerPages';
+import { CustomerBookingNew, CustomerBookings, CustomerBookingDetail } from './pages/v1/CustomerBookings';
+import { AdminDashboard, AdminBookings, AdminBookingDetail } from './pages/v1/AdminBookings';
+import { AdminCustomers, AdminCustomerDetail } from './pages/v1/AdminCustomers';
+import { AdminServices } from './pages/v1/AdminServices';
+import { AdminReminders, AdminReminderDetail } from './pages/v1/AdminReminders';
+import { CircleAlert, PawPrint } from 'lucide-react';
 
-function App() {
-  const [count, setCount] = useState(0)
+function RouteState({ forbidden = false }: { forbidden?: boolean }) { return <main className="min-h-dvh bg-canvas px-4 py-16"><div className="mx-auto max-w-lg border-t border-border-custom pt-8"><PawPrint aria-hidden="true" size={28} strokeWidth={1.5} className="mb-5 text-muted-accent" /><CircleAlert aria-hidden="true" size={18} className="mb-3 text-plum-noir" /><h1 className="font-serif text-2xl font-semibold mb-3">{forbidden ? 'Bạn không có quyền truy cập' : 'Không tìm thấy trang'}</h1><p className="text-text-secondary mb-6">{forbidden ? 'Tài khoản hiện tại không thể mở nội dung này.' : 'Trang bạn tìm có thể đã chuyển hoặc không còn tồn tại.'}</p><a className="text-plum-noir underline underline-offset-4" href="/">Về trang chủ</a></div></main>; }
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function Gate({ role }: { role: 'CUSTOMER' | 'ADMIN' }) {
+  const { state, refresh } = useAuth();
+  const location = useLocation();
+  if (state.status === 'checking') return <div className="p-10">Đang xác minh phiên đăng nhập…</div>;
+  if (state.status === 'error') return <div className="p-10 space-y-3"><p>{state.error}</p><button className="underline" onClick={() => void refresh()}>Thử lại</button></div>;
+  if (state.status === 'anonymous') return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  if (state.role !== role) return <Navigate to="/forbidden" replace />;
+  return <Outlet />;
 }
 
-export default App
+export default function App() {
+  return <Routes>
+    <Route path="/" element={<GuestLandingPage />} />
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/register" element={<RegisterPage />} />
+    {features.grooming && <Route element={<Gate role="CUSTOMER" />}><Route element={<Layout />}>
+      <Route path="/app" element={<CustomerHome />} />
+      <Route path="/app/profile" element={<CustomerProfile />} />
+      <Route path="/app/pets" element={<CustomerPets />} />
+      <Route path="/app/pets/:petId" element={<CustomerPetDetail />} />
+      <Route path="/app/bookings/new" element={<CustomerBookingNew />} />
+      <Route path="/app/bookings" element={<CustomerBookings />} />
+      <Route path="/app/bookings/:bookingId" element={<CustomerBookingDetail />} />
+    </Route></Route>}
+    {features.crm && <Route element={<Gate role="ADMIN" />}><Route element={<Layout admin />}>
+      <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/admin/customers" element={<AdminCustomers />} />
+      <Route path="/admin/customers/:customerId" element={<AdminCustomerDetail />} />
+      <Route path="/admin/services" element={<AdminServices />} />
+      <Route path="/admin/bookings" element={<AdminBookings />} />
+      <Route path="/admin/bookings/:bookingId" element={<AdminBookingDetail />} />
+      <Route path="/admin/reminders" element={<AdminReminders />} />
+      <Route path="/admin/reminders/:reminderId" element={<AdminReminderDetail />} />
+    </Route></Route>}
+    <Route path="/forbidden" element={<RouteState forbidden />} />
+    <Route path="*" element={<RouteState />} />
+  </Routes>;
+}

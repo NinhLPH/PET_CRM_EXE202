@@ -1,34 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { RemindersService } from './reminders.service';
-import { CreateReminderDto } from './dto/create-reminder.dto';
-import { UpdateReminderDto } from './dto/update-reminder.dto';
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { Admin } from '../common/common';
+import type { ActorRequest } from '../common/common';
+import { ContactDto } from './dto/reminders.dto';
+import { ReminderWorkflowService } from './reminders.service';
 
-@Controller('reminders')
-export class RemindersController {
-  constructor(private readonly remindersService: RemindersService) {}
-
-  @Post()
-  create(@Body() createReminderDto: CreateReminderDto) {
-    return this.remindersService.create(createReminderDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.remindersService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.remindersService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateReminderDto: UpdateReminderDto) {
-    return this.remindersService.update(+id, updateReminderDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.remindersService.remove(+id);
-  }
+@Admin()
+@ApiTags('admin reminders')
+@ApiCookieAuth()
+@Controller('admin/reminders')
+export class AdminRemindersApiController {
+  constructor(private readonly reminders: ReminderWorkflowService) {}
+  @Get() list(@Query() query: { due?: string; page?: string; limit?: string }) { return this.reminders.list(query); }
+  @Get(':id') one(@Param('id') reminderId: string) { return this.reminders.detail(reminderId); }
+  @Post(':id/contact') contact(@Param('id') reminderId: string, @Req() request: ActorRequest, @Body() body: ContactDto) { return this.reminders.contact(reminderId, request.actor, body); }
 }

@@ -1,34 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { AuthRateGuard, Public } from '../common/common';
+import type { ActorRequest } from '../common/common';
+import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { AuthWorkflowService } from './auth.service';
 
+@ApiTags('auth')
 @Controller('auth')
-export class AuthController {
-  constructor(private readonly authService: AuthService) {}
-
-  @Post()
-  create(@Body() createAuthDto: CreateAuthDto) {
-    return this.authService.create(createAuthDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.authService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.authService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.update(+id, updateAuthDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.authService.remove(+id);
-  }
+export class AuthApiController {
+  constructor(private readonly auth: AuthWorkflowService) {}
+  @Public() @UseGuards(AuthRateGuard) @Post('register') register(@Body() body: RegisterDto) { return this.auth.register(body); }
+  @Public() @UseGuards(AuthRateGuard) @Post('login') login(@Body() body: LoginDto, @Res({ passthrough: true }) response: Response) { return this.auth.login(body, response); }
+  @Post('logout') logout(@Req() request: ActorRequest, @Res({ passthrough: true }) response: Response) { return this.auth.logout(request.actor, response); }
 }
