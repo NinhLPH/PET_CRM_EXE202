@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+  --radius-control: 6px;
+  --radius-panel: 8px;
   --font-serif: "Lora", Georgia, serif;
   --font-sans: "Source Sans 3", system-ui, sans-serif;
 
@@ -25,12 +27,17 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-width: 320px;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-serif);
     color: var(--color-text-primary);
   }
+  h1, h2 { font-family: var(--font-serif); }
+  :focus-visible { outline: 2px solid var(--color-plum-noir); outline-offset: 2px; }
+  html { scroll-padding-top: 88px; }
+  @media (max-width: 767px) { html { scroll-padding-bottom: 88px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
 }
 
 /* Custom subtle scrollbar */

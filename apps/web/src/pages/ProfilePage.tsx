@@ -21,7 +21,7 @@ export function ProfilePage() {
   };
 
   const handleResetData = () => {
-    if (confirm('Restore PetCare Boutique simulation data to default settings?')) resetDemo();
+    if (confirm('Restore TailUp Boutique simulation data to default settings?')) resetDemo();
   };
   return (
     <div className="max-w-2xl mx-auto space-y-8">

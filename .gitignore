@@ -4,6 +4,8 @@
 /apps/*/dist/
 /apps/*/coverage/
 *.tsbuildinfo
+.agent
+.agents/
 
 # Environment secrets
 .env

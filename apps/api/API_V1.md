@@ -1,4 +1,4 @@
-# PetCare CRM API v1
+# TailUp CRM API v1
 
 This backend implements the 45 MVP operations under the exact paths in `PetCare_CRM_Workflow_MVP_v1.docx`. Swagger UI is available at `/openapi` after startup. Route handlers and business services are organized by domain under `src`.
 

@@ -13,7 +13,7 @@ export function Header() {
             className="flex items-center gap-2 cursor-pointer focus-visible:outline-none"
         >
         <span className="font-serif text-2xl font-bold tracking-tight text-plum-noir">
-          PetCare <span className="font-sans text-xs uppercase tracking-widest font-normal text-muted-accent block lg:inline lg:ml-1">Boutique</span>
+          TailUp <span className="font-sans text-xs uppercase tracking-widest font-normal text-muted-accent block lg:inline lg:ml-1">Boutique</span>
         </span>
         </button>
 

@@ -1,4 +1,4 @@
-# PetCare CRM Frontend v1
+# TailUp CRM Frontend v1
 
 # React + TypeScript + Vite
 

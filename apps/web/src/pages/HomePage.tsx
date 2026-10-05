@@ -10,7 +10,7 @@ export function HomePage() {
       {/* Elegant Hero Welcome (Split-screen Style with CSS Fallback Illustration) */}
       <div className="bg-surface border border-border-custom rounded-lg p-6 lg:p-10 flex flex-col lg:flex-row items-center gap-8 justify-between relative overflow-hidden">
         <div className="space-y-4 max-w-lg z-10">
-          <span className="text-xs uppercase tracking-widest font-semibold text-muted-accent">Welcome back to PetCare</span>
+          <span className="text-xs uppercase tracking-widest font-semibold text-muted-accent">Welcome back to TailUp</span>
           <h1 className="text-3xl md:text-4xl font-bold font-serif leading-tight text-text-primary text-wrap-balance">
             Fine grooming care & organic remedies, {profile.name.split(' ')[0]}.
           </h1>

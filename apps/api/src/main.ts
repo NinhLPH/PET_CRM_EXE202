@@ -81,7 +81,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('PetCare CRM API v1')
+      .setTitle('TailUp CRM API v1')
       .setVersion('1.0')
       .addCookieAuth('petcare_session')
       .build(),

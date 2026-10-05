@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
-describe('PetCare API v1 (e2e)', () => {
+describe('TailUp API v1 (e2e)', () => {
   it('protects private routes and exposes active public services', async () => {
     const prisma = {
       service: {

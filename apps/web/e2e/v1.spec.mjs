@@ -227,7 +227,7 @@ test('05 Customer booking to Admin completion, snapshot, totals, dashboard and r
   await call(admin, 'DELETE', `/admin/pets/${pet.id}`, undefined, 409);
   await call(admin, 'POST', `/admin/bookings/${booking.id}/complete`, { surcharges: [], discount: 0 }, 409);
   const ap = await pageFor(admin, `/admin/bookings?status=PENDING&date=${future().slice(0, 10)}`);
-  await ap.getByRole('link', { name: new RegExp(`#${booking.id} ·`) }).click();
+  await ap.locator(`a[href="/admin/bookings/${booking.id}"]`).click();
   await submit(ap, 'Xác nhận lịch', `/admin/bookings/${booking.id}/confirm`);
   expect((await call(admin, 'GET', '/admin/dashboard')).pending).toBe(countersBefore.pending);
   await call(admin, 'POST', `/admin/bookings/${booking.id}/confirm`, {}, 409);
@@ -493,6 +493,24 @@ test('19 CRM customer pagination and empty search', async () => {
   } finally {
     for (const c of created) { await call(admin, 'DELETE', `/admin/customers/${c.id}`); records.deleted.push(`customer ${c.id}`); }
   }
+});
+
+test('20 guest landing booking CTA logs in and returns to booking form', async ({ browser }) => {
+  const ctx = await context(browser);
+  contexts.push(ctx);
+  const page = await pageFor(ctx, '/');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Chăm chút mỗi ngày');
+  await page.getByRole('link', { name: 'Đặt lịch chăm sóc', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Fapp%2Fbookings%2Fnew$/);
+  await page.getByLabel('Số điện thoại').fill(credentials.phone);
+  await page.getByLabel('Mật khẩu', { exact: true }).fill(credentials.password);
+  await submit(page, 'Đăng nhập', '/auth/login');
+  await expect(page).toHaveURL(/\/app\/bookings\/new$/);
+  await expect(page.getByLabel('1. Thú cưng')).toBeVisible();
+  await expect(page.getByLabel('2. Dịch vụ')).toBeVisible();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Chăm chút mỗi ngày');
+  await expect(page).toHaveURL(web + '/');
 });
 
 test('99 authentication throttles actual repeated failures and UI shows 429', async () => {
