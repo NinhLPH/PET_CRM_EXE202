@@ -1,26 +1,41 @@
-# PetCare CRM API v1
+# TailUp CRM API v1
 
-This backend implements the 45 MVP operations under the exact paths in `PetCare_CRM_Workflow_MVP_v1.docx`. Swagger UI is available at `/openapi` after startup. Route handlers and business services live in `src/api`.
+This backend implements the 45 MVP operations under the exact paths in `PetCare_CRM_Workflow_MVP_v1.docx`. Swagger UI is available at `/openapi` after startup. Route handlers and business services are organized by domain under `src`.
 
 ## Runtime
 
 - Node.js 24, PostgreSQL, Prisma 7.
 - Copy `.env.example` to `.env` and set `DATABASE_URL` and `CORS_ORIGINS` for the actual web origin. Session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Cross-origin browser calls must send credentials.
 - `npm install`, `npx prisma generate`, `npm run build`, then `npm run start:prod`.
-- Create the first ADMIN with `ADMIN_PHONE` and `ADMIN_PASSWORD` (12+ characters) set only for `npm run seed:admin`. The script refuses to promote an existing customer account.
+- Create the first ADMIN with `ADMIN_PHONE` and `ADMIN_PASSWORD` (12+ characters) using `npm run seed:admin`, or include it when running `npm run seed:demo`. The admin-only script refuses to promote an existing customer account.
+
+## Demo data
+
+Using a supported Node.js version (22.22.3+ or 24.15.0+), set `DATABASE_URL`, `ADMIN_PHONE`, `ADMIN_PASSWORD` (12+ characters), and `SEED_CUSTOMER_PASSWORD` (8+ characters) in `apps/api/.env`. From `apps/api`, check that `DATABASE_URL` points to your development database and that all tables already match `prisma/schema.prisma`, then run `npm run seed:demo`. This does not create tables or run migrations.
+
+The command creates an ADMIN if needed, 30 sample customers (10 with login accounts), 50 pets, 6 services with DOG/CAT price bands and reminder settings, 24 bookings across all statuses, and related reminders and CRM activities. The first 10 customer phone numbers are `0991000001` through `0991000010`; they use `SEED_CUSTOMER_PASSWORD` for login. The remaining customer numbers continue through `0991000030` and have no account. Re-running the command only creates missing demo records; it never resets passwords or overwrites existing records. If an existing phone or demo identifier belongs to other data, the command stops with an error.
+
+`seed:admin` remains available when you only need an ADMIN account. Do not run `seed:demo` against a production database.
 
 ## Database migration
 
-The repository contains a generated baseline matching the database structure inspected on 2026-10-01 and a second migration that adds BIGINT IDs, sessions, idempotency, cancellation reason and concurrency indexes. Neither migration was applied to the configured remote database while developing this change.
+The active v1 migration history is now in `prisma/migrations`:
 
-For a **fresh empty database**, run `npx prisma migrate deploy`. For the **configured existing database**, Prisma reports an already applied migration named `20261001102343_init`, but its original `migration.sql` is missing from this checkout and Git remote. Its recorded SHA-256 checksum is `4d3ef0bb09aa16ea4b1558edfcd870b63f26b86a1d92de7092dea31e99289008`. Retrieve that original migration directory before deploying to this database. The generated baseline is for fresh installs and is not a substitute for the missing original migration file. After recovery, replace the generated `20261001080000_baseline` directory with the original `20261001102343_init` directory, confirm its checksum matches the database, back up the database, run `npm run migration:preflight`, and deploy the upgrade migration.
+- `20261018000000_v1_current_baseline` creates the complete v1 schema for a fresh database.
+- `20261018000100_v1_invariants` adds six CHECK constraints and three partial unique indexes that Prisma's schema cannot represent directly.
+
+On 2026-10-18 the configured development database already had the v1 tables and data, but its `_prisma_migrations` table was empty and the nine invariants were missing. The baseline SQL was compared with that database's tables, columns, keys, and indexes in a rolled-back isolated schema; the Prisma schema comparison also reported no difference. The baseline was marked applied on **that database only**, and the invariants migration was deployed. No application data was reset. `prisma migrate status` now reports the database up to date.
+
+For a **fresh empty database**, run `npx prisma migrate deploy`; Prisma will execute both migrations. For an **existing database other than the one already reconciled**, inspect its `_prisma_migrations` history and actual schema first. An older environment may still have `20261001102343_init` recorded; its original SQL was not available in this repository, so do not mark the new baseline applied or run `migrate deploy` there without a separate comparison and recovery decision. The older generated migrations remain recoverable from Git commit `9d03fc7` but are not the active history.
+
+Before deploying new migrations, run `npm run migration:preflight` and `npm run migration:verify` against a development or staging database. The verify script creates the v1 structure in an isolated schema and rolls it back; it does not alter application tables. Review SQL and take a database backup before applying a migration that changes existing data.
 
 ```sh
 npx prisma migrate status
 npx prisma migrate deploy
 ```
 
-Do not run `migrate deploy` on the configured database until the history mismatch is resolved. Review the SQL and allow a maintenance window on an existing database because changing primary and foreign keys requires table locks. Re-run `npx prisma migrate status` and `npx prisma generate` after deployment.
+Re-run `npx prisma migrate status` and `npx prisma generate` after deployment. New v2 migrations must be appended to this active history; do not restore the older generated baseline/upgrade directories into it.
 
 ## Contract conventions
 

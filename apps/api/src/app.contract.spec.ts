@@ -13,7 +13,7 @@ describe('MVP API contract', () => {
     try {
       const document = SwaggerModule.createDocument(app, {
         openapi: '3.0.0',
-        info: { title: 'PetCare CRM', version: '1.0' },
+        info: { title: 'TailUp CRM', version: '1.0' },
       });
       const operations = Object.values(document.paths).flatMap((path) =>
         Object.keys(path ?? {}),

@@ -80,7 +80,7 @@ describe('create booking', () => {
       create: jest.fn().mockResolvedValue({ id: 7n, status: 'PENDING' }),
     },
     idempotencyRequest: { create: jest.fn().mockResolvedValue({}) },
-    $queryRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
+    $executeRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
   };
   const db = {
     idempotencyRequest: { findUnique: jest.fn().mockResolvedValue(null) },

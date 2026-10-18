@@ -1,12 +1,12 @@
 ---
-title: "PetCare CRM API v1 for Frontend"
+title: "TailUp CRM API v1 for Frontend"
 source: "API_DOC.docx"
 document_type: "API Integration Reference"
 endpoint_count: 45
 language: "vi"
 ---
 
-# PetCare CRM API v1 cho Frontend
+# TailUp CRM API v1 cho Frontend
 
 > Tài liệu Markdown này được tái cấu trúc từ `API_DOC.docx` để AI Agent và Frontend Developer dễ tra cứu.
 > Nội dung giữ nguyên các quy tắc, endpoint, request/response và ví dụ có trong tài liệu gốc.

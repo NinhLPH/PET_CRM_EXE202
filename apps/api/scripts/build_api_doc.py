@@ -1,4 +1,4 @@
-"""Build the frontend-facing PetCare CRM v1 API reference."""
+"""Build the frontend-facing TailUp CRM v1 API reference."""
 
 from pathlib import Path
 from docx import Document
@@ -193,7 +193,7 @@ def main():
     title_style_pr = styles["Title"]._element.get_or_add_pPr()
     for border in title_style_pr.findall(qn("w:pBdr")):
         title_style_pr.remove(border)
-    doc.add_paragraph("PetCare CRM API v1 cho Frontend", "Title")
+    doc.add_paragraph("TailUp CRM API v1 cho Frontend", "Title")
     add_para(doc, "Tài liệu mô tả 45 endpoint đang có trong backend, cách gửi request, dạng response và các quy tắc FE cần xử lý. Đường dẫn trong bảng được ghép trực tiếp với API origin (không có tiền tố /api/v1). Swagger UI tại /openapi khi server chạy.")
     doc.add_heading("Quy ước tích hợp", 1)
     for line in [
@@ -234,7 +234,7 @@ def main():
             run.font.size = Pt(8)
     doc.add_heading("Lưu ý về trạng thái", 1)
     add_para(doc, "Booking: PENDING → CONFIRMED → COMPLETED; ADMIN có thể hủy từ PENDING hoặc CONFIRMED. Hoàn thành cần cấu hình reminder ACTIVE; finalTotal = basePrice snapshot + tổng phụ phí - discount và không được âm. Reminder liên hệ thành công chuyển CONTACTED và biến khỏi danh sách due=true. GET /admin/reminders không lọc trạng thái khi thiếu due=true (kể cả due=false).")
-    doc.core_properties.title = "PetCare CRM API v1 cho Frontend"
+    doc.core_properties.title = "TailUp CRM API v1 cho Frontend"
     doc.core_properties.subject = "Tài liệu request response cho 45 endpoint backend"
     doc.save(OUTPUT)
     print(f"Wrote {OUTPUT} ({count} endpoints)")

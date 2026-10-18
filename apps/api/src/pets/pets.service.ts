@@ -51,12 +51,13 @@ export class PetsService {
 
   async deletePet(petId: string, actor: Actor, admin = false) {
     const pet = await this.pet(petId, actor, admin);
-    const [bookings, reminders] = await Promise.all([
+    const [bookings, reminders, activities] = await Promise.all([
       this.db.booking.count({ where: { petId: pet.id } }),
       this.db.petReminder.count({ where: { petId: pet.id } }),
+      this.db.crmActivity.count({ where: { petId: pet.id } }),
     ]);
-    if (bookings || reminders)
-      throw new ConflictException('Thú cưng đã có lịch sử booking hoặc reminder');
+    if (bookings || reminders || activities)
+      throw new ConflictException('Thú cưng đã có lịch sử booking, reminder hoặc hoạt động CRM');
     await this.db.pet.delete({ where: { id: pet.id } });
     return { success: true };
   }

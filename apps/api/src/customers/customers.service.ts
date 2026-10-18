@@ -36,7 +36,7 @@ export class CustomersService {
 
   async createCustomer(body: CustomerDto) {
     return this.db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-phone:${body.phone}`}, 0))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-phone:${body.phone}`}, 0))`;
       if (await tx.customer.findFirst({ where: { phone: body.phone } }))
         throw new ConflictException('Số điện thoại đã có hồ sơ CRM');
       return tx.customer.create({ data: { ...body, fullName: body.fullName.trim() } });
@@ -48,7 +48,7 @@ export class CustomersService {
     return this.db.$transaction(async (tx) => {
       const phones = [...new Set([existing.phone, body.phone].filter((value): value is string => Boolean(value)))].sort();
       for (const phone of phones)
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-phone:${phone}`}, 0))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`customer-phone:${phone}`}, 0))`;
       const current = await tx.customer.findUniqueOrThrow({ where: { id: existing.id } });
       if (current.userId && body.phone && body.phone !== current.phone)
         throw new ConflictException('Không đổi SĐT hồ sơ đã gắn tài khoản');

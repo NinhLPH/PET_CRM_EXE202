@@ -18,10 +18,15 @@ try {
     invalidBookingMoney: `SELECT count(*)::int AS count FROM bookings WHERE discount_amount < 0 OR discount_amount <> trunc(discount_amount)`,
     invalidSurchargeMoney: `SELECT count(*)::int AS count FROM booking_surcharges WHERE amount <= 0 OR amount <> trunc(amount)`,
   };
+  const failures = [];
   for (const [name, sql] of Object.entries(checks)) {
     const result = await client.query(sql);
-    console.log(`${name}: ${result.rows[0].count}`);
+    const count = Number(result.rows[0].count);
+    console.log(`${name}: ${count}`);
+    if (count > 0) failures.push(`${name}: ${count}`);
   }
+  if (failures.length)
+    throw new Error(`Migration preflight failed: ${failures.join(', ')}`);
 } finally {
   await client.end();
 }
