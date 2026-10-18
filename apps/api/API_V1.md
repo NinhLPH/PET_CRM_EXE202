@@ -19,16 +19,23 @@ The command creates an ADMIN if needed, 30 sample customers (10 with login accou
 
 ## Database migration
 
-The repository contains a generated baseline matching the database structure inspected on 2026-10-01 and a second migration that adds BIGINT IDs, sessions, idempotency, cancellation reason and concurrency indexes. Neither migration was applied to the configured remote database while developing this change.
+The active v1 migration history is now in `prisma/migrations`:
 
-For a **fresh empty database**, run `npx prisma migrate deploy`. For the **configured existing database**, Prisma reports an already applied migration named `20261001102343_init`, but its original `migration.sql` is missing from this checkout and Git remote. Its recorded SHA-256 checksum is `4d3ef0bb09aa16ea4b1558edfcd870b63f26b86a1d92de7092dea31e99289008`. Retrieve that original migration directory before deploying to this database. The generated baseline is for fresh installs and is not a substitute for the missing original migration file. After recovery, replace the generated `20261001080000_baseline` directory with the original `20261001102343_init` directory, confirm its checksum matches the database, back up the database, run `npm run migration:preflight`, and deploy the upgrade migration.
+- `20261018000000_v1_current_baseline` creates the complete v1 schema for a fresh database.
+- `20261018000100_v1_invariants` adds six CHECK constraints and three partial unique indexes that Prisma's schema cannot represent directly.
+
+On 2026-10-18 the configured development database already had the v1 tables and data, but its `_prisma_migrations` table was empty and the nine invariants were missing. The baseline SQL was compared with that database's tables, columns, keys, and indexes in a rolled-back isolated schema; the Prisma schema comparison also reported no difference. The baseline was marked applied on **that database only**, and the invariants migration was deployed. No application data was reset. `prisma migrate status` now reports the database up to date.
+
+For a **fresh empty database**, run `npx prisma migrate deploy`; Prisma will execute both migrations. For an **existing database other than the one already reconciled**, inspect its `_prisma_migrations` history and actual schema first. An older environment may still have `20261001102343_init` recorded; its original SQL was not available in this repository, so do not mark the new baseline applied or run `migrate deploy` there without a separate comparison and recovery decision. The older generated migrations remain recoverable from Git commit `9d03fc7` but are not the active history.
+
+Before deploying new migrations, run `npm run migration:preflight` and `npm run migration:verify` against a development or staging database. The verify script creates the v1 structure in an isolated schema and rolls it back; it does not alter application tables. Review SQL and take a database backup before applying a migration that changes existing data.
 
 ```sh
 npx prisma migrate status
 npx prisma migrate deploy
 ```
 
-Do not run `migrate deploy` on the configured database until the history mismatch is resolved. Review the SQL and allow a maintenance window on an existing database because changing primary and foreign keys requires table locks. Re-run `npx prisma migrate status` and `npx prisma generate` after deployment.
+Re-run `npx prisma migrate status` and `npx prisma generate` after deployment. New v2 migrations must be appended to this active history; do not restore the older generated baseline/upgrade directories into it.
 
 ## Contract conventions
 
