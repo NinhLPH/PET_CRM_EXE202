@@ -216,10 +216,31 @@ export function GuestLandingPage() {
             </section>
         </main>
 
-        <footer className="guest-container guest-footer">
-            <div><Brand/><p>Chăm chút mỗi ngày, yêu thương trọn vẹn.</p></div>
-            <nav aria-label="Liên kết cuối trang"><a href="#dich-vu">Dịch vụ</a><Link to="/login">Đăng nhập</Link><Link
-                to="/register">Đăng ký</Link></nav>
-            <span className="guest-footer-note">TailUp · Dành cho bạn và bé</span></footer>
+        <footer className="guest-footer">
+            <div className="guest-container">
+                <div className="guest-footer-main">
+                    <div className="guest-footer-about">
+                        <Brand/>
+                        <p>Chăm chút mỗi ngày, yêu thương trọn vẹn.</p>
+                        <p>Dành cho bạn và những người bạn nhỏ.</p>
+                    </div>
+                    <nav aria-label="Khám phá TailUp">
+                        <h2>Khám phá</h2>
+                        <a href="#dich-vu">Dịch vụ</a>
+                        <a href="#cach-dat-lich">Cách đặt lịch</a>
+                        <a href="#cau-hoi">Câu hỏi thường gặp</a>
+                    </nav>
+                    <nav aria-label="Tài khoản">
+                        <h2>Tài khoản</h2>
+                        <Link to="/login">Đăng nhập</Link>
+                        <Link to="/register">Đăng ký</Link>
+                    </nav>
+                </div>
+                <div className="guest-footer-bottom">
+                    <span>© {new Date().getFullYear()} TailUp</span>
+                    <a href="#guest-main">Về đầu trang</a>
+                </div>
+            </div>
+        </footer>
     </div>;
 }
