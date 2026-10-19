@@ -9,8 +9,8 @@ export const money = (value: number | null | undefined) => value == null ? '—'
 export const dateTime = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—';
 export const dateOnly = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short' }).format(new Date(value)) : '—';
 export const bookingLabel: Record<BookingStatus, string> = { PENDING: 'Chờ duyệt', CONFIRMED: 'Đã xác nhận', COMPLETED: 'Hoàn thành', CANCELLED: 'Đã hủy' };
-export const bookingPrice = (booking: Booking) => booking.status === 'COMPLETED' ? booking.finalTotal : booking.estimatedTotal;
-export const firstService = (booking: Booking) => booking.services?.[0]?.service?.serviceName || 'Dịch vụ';
+export const bookingPrice = (booking: Booking) => booking.status === 'COMPLETED' ? booking.adjustedTotal ?? booking.finalTotal : booking.estimatedTotal;
+export const firstService = (booking: Booking) => booking.services?.[0]?.serviceName || booking.services?.[0]?.service?.serviceName || 'Dịch vụ';
 export const vietnameseBookingDate = (local: string) => `${local}:00+07:00`;
 export const fieldError = (error: unknown, field: string) => fieldErrors(error)[field];
 

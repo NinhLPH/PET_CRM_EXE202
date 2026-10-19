@@ -14,10 +14,11 @@ async function petFields(page, name, weight = '4.5') {
 }
 async function bookingForm(page, at = future()) {
   await page.goto('/app/bookings/new');
-  await page.getByLabel('1. Thú cưng').selectOption(pet.id);
-  await page.getByLabel('2. Dịch vụ').selectOption(service.id);
+  await page.getByRole('combobox',{name:'Thú cưng'}).selectOption(pet.id);
+  await page.getByRole('combobox',{name:'Dịch vụ'}).selectOption(service.id);
   await expect(page.getByText('Giá tạm tính:', { exact: false })).toBeVisible();
-  await page.getByLabel('3. Ngày giờ (giờ Việt Nam)').fill(at);
+  await page.getByLabel('Ngày hẹn (giờ Việt Nam)').fill(at.slice(0,10));
+  await page.getByRole('combobox',{name:'Giờ bắt đầu · kết thúc'}).selectOption(new Date(`${at}:00+07:00`).toISOString());
   await page.getByLabel('Ghi chú (tùy chọn)').fill(runId);
 }
 
@@ -31,12 +32,14 @@ test.beforeAll(async ({ browser }) => {
   writeFileSync(`${out}/operations.json`, JSON.stringify(Object.entries(spec.paths).flatMap(([path, methods]) => Object.keys(methods).filter(m => /^(get|post|patch|delete|put)$/.test(m)).map(method => `${method.toUpperCase()} ${path}`)), null, 2));
   // Existing CRM link is exercised by registering the same fixture phone through the UI.
   a = remember('customers', await call(admin, 'POST', '/admin/customers', { fullName: `${runId}_CRM`, phone: credentials.phone }));
+  const evidence = await call(admin,'POST','/admin/identity-evidence',{phone:credentials.phone,purpose:'LINK',customerId:a.id,evidenceSummary:`${runId} fixture verification`});
   for (const [ctx, creds, suffix] of [[customer, credentials, 'A'], [other, secondCredentials, 'B']]) {
     const page = await pageFor(ctx, '/register');
     await page.getByLabel('Họ tên').fill(`${runId}_${suffix}`);
     await page.getByLabel('Số điện thoại').fill(creds.phone);
     await page.getByLabel('Mật khẩu', { exact: true }).fill(creds.password);
     await page.getByLabel('Nhập lại mật khẩu').fill(creds.password);
+    if (ctx===customer) await page.getByLabel('Mã xác minh từ nhân viên (nếu có hồ sơ cũ)').fill(evidence.verificationToken);
     await submit(page, 'Tạo tài khoản', '/auth/register');
     await expect(page).toHaveURL(/registered=1/);
     await login(page, creds);
@@ -165,7 +168,7 @@ test('03 CRM customer and Admin pet CRUD, notes, linked account restrictions', a
   await page.getByRole('button', { name: 'Thông tin', exact: true }).click();
   await submit(page, 'Xóa', `/admin/customers/${c.id}`, 'DELETE', 200); records.deleted.push(`customer ${c.id}`);
   await page.getByLabel('Tìm theo tên hoặc SĐT').fill(credentials.phone); await page.getByRole('button', { name: 'Tìm', exact: true }).click();
-  await page.getByRole('link', { name: new RegExp(`${runId}_A`) }).click();
+  await page.locator(`a[href="/admin/customers/${a.id}"]`).click();
   await expect(page.getByText('Đã liên kết', { exact: false })).toBeVisible();
   await call(admin, 'DELETE', `/admin/customers/${a.id}`, undefined, 409);
   await call(admin, 'PATCH', `/admin/customers/${a.id}`, { phone: phone() }, 409);
@@ -219,7 +222,7 @@ test('04 services price rules state boundaries and reminder configuration throug
 test('05 Customer booking to Admin completion, snapshot, totals, dashboard and reminder', async () => {
   const countersBefore = await call(admin, 'GET', '/admin/dashboard');
   const cp = await customer.newPage(); await bookingForm(cp);
-  const booking = remember('bookings', await submit(cp, 'Xác nhận đặt lịch', '/bookings'));
+  const booking = remember('bookings', await submit(cp, 'Đặt lịch', '/bookings'));
   expect((await call(admin, 'GET', '/admin/dashboard')).pending).toBe(countersBefore.pending + 1);
   await expect(cp).toHaveURL(new RegExp(`/bookings/${booking.id}$`)); await expect(cp.getByText('Chờ duyệt', { exact: false })).toBeVisible();
   await call(other, 'GET', `/bookings/${booking.id}`, undefined, 403);
@@ -242,7 +245,7 @@ test('05 Customer booking to Admin completion, snapshot, totals, dashboard and r
     const reminder = remember('reminders', completed.reminders[0]);
     const localCompleted = new Date(new Date(reminder.completedDate).getTime() + 7 * 3600000).toISOString().slice(0, 10);
     expect(new Date(reminder.reminderDate).getTime() - Date.parse(`${localCompleted}T00:00:00+07:00`)).toBe(8 * 86400000);
-    await cp.reload(); await expect(cp.getByText('Giá cuối:', { exact: false })).toContainText('120.000');
+    await cp.reload(); await expect(cp.getByText('Giá hoàn thành gốc:', { exact: false })).toContainText('120.000');
     await expect(cp.getByText('Fixture surcharge:', { exact: false })).toBeVisible();
     await cp.goto('/app');
     await expect(cp.locator(`main a[href="/app/bookings/${booking.id}"]`)).toContainText('120.000');
@@ -273,11 +276,11 @@ test('07 lost create response reload retry is idempotent and keeps draft', async
   const page = await customer.newPage(); await bookingForm(page, future(3));
   const before = await call(customer, 'GET', '/bookings/mine');
   await page.route(`${origin}/bookings`, async route => { const response = await route.fetch(); expect(response.status()).toBe(201); remember('bookings', await response.json()); await route.abort('failed'); }, { times: 1 });
-  await page.getByRole('button', { name: 'Xác nhận đặt lịch' }).click();
+  await page.getByRole('button', { name: 'Đặt lịch' }).click();
   await expect(page.getByRole('alert')).toContainText('Không kết nối');
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Thử lại yêu cầu trước' })).toBeEnabled();
-  const replay = remember('bookings', await submit(page, 'Thử lại yêu cầu trước', '/bookings'));
+  await expect(page.getByRole('button', { name: 'Gửi lại cùng yêu cầu' })).toBeEnabled();
+  const replay = remember('bookings', await submit(page, 'Gửi lại cùng yêu cầu', '/bookings'));
   await expect(page).toHaveURL(new RegExp(`/bookings/${replay.id}$`));
   expect((await call(customer, 'GET', '/bookings/mine')).total).toBe(before.total + 1);
 });
@@ -285,17 +288,18 @@ test('07 lost create response reload retry is idempotent and keeps draft', async
 test('08 price changed after restored draft requires confirmation and preserves fields', async () => {
   const page = await customer.newPage(); const at = future(4); await bookingForm(page, at);
   await page.route(`${origin}/bookings`, route => route.abort('failed'), { times: 1 });
-  await page.getByRole('button', { name: 'Xác nhận đặt lịch' }).click(); await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByRole('button', { name: 'Đặt lịch' }).click(); await expect(page.getByRole('alert')).toBeVisible();
   await page.reload();
   await call(admin, 'PATCH', `/admin/services/${service.id}/prices/${dogPrice.id}`, { species: 'DOG', minWeight: '0', maxWeight: '5', price: 110000 });
   try {
-    await submit(page, 'Thử lại yêu cầu trước', '/bookings', 'POST', 409);
-    await expect(page.getByLabel('1. Thú cưng')).toHaveValue(pet.id);
-    await expect(page.getByLabel('2. Dịch vụ')).toHaveValue(service.id);
-    await expect(page.getByLabel('3. Ngày giờ (giờ Việt Nam)')).toHaveValue(at);
-    await expect(page.getByRole('button', { name: 'Xác nhận đặt lịch' })).toBeDisabled();
-    await page.getByRole('button', { name: 'Tôi đã xem giá mới' }).click();
-    const booking = remember('bookings', await submit(page, 'Xác nhận đặt lịch', '/bookings'));
+    await submit(page, 'Gửi lại cùng yêu cầu', '/bookings', 'POST', 409);
+    await expect(page.getByRole('combobox',{name:'Thú cưng'})).toHaveValue(pet.id);
+    await expect(page.getByRole('combobox',{name:'Dịch vụ'})).toHaveValue(service.id);
+    await expect(page.getByLabel('Ngày hẹn (giờ Việt Nam)')).toHaveValue(at.slice(0,10));
+    await expect(page.getByRole('combobox',{name:'Giờ bắt đầu · kết thúc'})).toHaveValue(new Date(`${at}:00+07:00`).toISOString());
+    await expect(page.getByRole('button', { name: 'Đặt lịch' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Tôi đồng ý giá mới' }).click();
+    const booking = remember('bookings', await submit(page, 'Đặt lịch', '/bookings'));
     expect(booking.estimatedTotal).toBe(110000);
   } finally { await call(admin, 'PATCH', `/admin/services/${service.id}/prices/${dogPrice.id}`, { species: 'DOG', minWeight: '0', maxWeight: '5', price: 100000 }); }
 });
@@ -408,12 +412,12 @@ test('14 logout session expiry and account switch clear unresolved booking', asy
   const ctx = await context(browser); contexts.push(ctx);
   const page = await ctx.newPage(); await login(page, credentials); await bookingForm(page, future(99));
   await page.route(`${origin}/bookings`, route => route.abort('failed'), { times: 1 });
-  await page.getByRole('button', { name: 'Xác nhận đặt lịch' }).click(); await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByRole('button', { name: 'Đặt lịch' }).click(); await expect(page.getByRole('alert')).toBeVisible();
   await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
   await expect(page).toHaveURL(/login/);
   expect(await page.evaluate(() => sessionStorage.getItem('petcare_pending_booking_v1'))).toBeNull();
   await login(page, secondCredentials); await page.goto('/app/bookings/new');
-  await expect(page.getByRole('button', { name: 'Thử lại yêu cầu trước' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Gửi lại cùng yêu cầu' })).toHaveCount(0);
   await ctx.clearCookies(); await page.goto('/app/profile'); await expect(page).toHaveURL(/login/);
   await call(ctx, 'GET', '/me/profile', undefined, 401);
 });
@@ -431,25 +435,26 @@ test('16 timeout and disabled session storage preserve form without creating boo
   await bookingForm(page, future(100));
   const before = await call(customer, 'GET', '/bookings/mine');
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Disabled', 'SecurityError'); }; });
-  await page.getByRole('button', { name: 'Xác nhận đặt lịch' }).click();
+  await page.getByRole('button', { name: 'Đặt lịch' }).click();
   await expect(page.getByRole('alert')).toContainText('Không thể lưu yêu cầu');
   expect((await call(customer, 'GET', '/bookings/mine')).total).toBe(before.total);
 });
 
 test('17 missing reminder configuration, CAT quote, timezone date filtering and concurrent completion', async () => {
-  const s = remember('services', await call(admin, 'POST', '/admin/services', { serviceName: `${runId}_NoConfig` }));
+  const s = remember('services', await call(admin, 'POST', '/admin/services', { serviceName: `${runId}_NoConfig`, estimatedDuration: 30 }));
   remember('prices', await call(admin, 'POST', `/admin/services/${s.id}/prices`, { species: 'CAT', minWeight: '0', price: 80000 }));
   await call(admin, 'PATCH', `/admin/services/${s.id}/status`, { status: 'ACTIVE' });
   const cat = remember('pets', await call(customer, 'POST', '/pets', { name: `${runId}_Cat`, species: 'CAT', weight: '2.5' }));
   const page = await pageFor(customer, '/app/bookings/new');
-  await page.getByLabel('1. Thú cưng').selectOption(cat.id); await page.getByLabel('2. Dịch vụ').selectOption(service.id);
+  await page.getByRole('combobox',{name:'Thú cưng'}).selectOption(cat.id); await page.getByRole('combobox',{name:'Dịch vụ'}).selectOption(service.id);
   await expect(page.getByRole('alert')).toContainText('Chưa có giá');
-  await expect(page.getByRole('button', { name: 'Xác nhận đặt lịch' })).toBeDisabled();
-  await page.getByLabel('2. Dịch vụ').selectOption(s.id);
+  await expect(page.getByRole('button', { name: 'Đặt lịch' })).toBeDisabled();
+  await page.getByRole('combobox',{name:'Dịch vụ'}).selectOption(s.id);
   await expect(page.getByText('Giá tạm tính:', { exact: false })).toContainText('80.000');
   const date = future().slice(0, 10);
-  await page.getByLabel('3. Ngày giờ (giờ Việt Nam)').fill(`${date}T00:30`);
-  const booking = remember('bookings', await submit(page, 'Xác nhận đặt lịch', '/bookings'));
+  await page.getByLabel('Ngày hẹn (giờ Việt Nam)').fill(date);
+  await page.getByRole('combobox',{name:'Giờ bắt đầu · kết thúc'}).selectOption(new Date(`${future()}:00+07:00`).toISOString());
+  const booking = remember('bookings', await submit(page, 'Đặt lịch', '/bookings'));
   const list = await call(admin, 'GET', `/admin/bookings?date=${date}&limit=100`);
   expect(list.items.some(item => item.id === booking.id)).toBe(true);
   await call(admin, 'POST', `/admin/bookings/${booking.id}/confirm`, {});
@@ -472,6 +477,8 @@ test('18 completion response loss reconciles saved state before another submissi
     const response = await route.fetch(); expect(response.status()).toBe(201); await route.abort('failed');
   }, { times: 1 });
   await page.getByRole('button', { name: 'Chốt hoàn thành', exact: true }).click();
+  await expect(page.getByText('Kết quả thao tác trước chưa xác định',{exact:false})).toBeVisible();
+  await page.getByRole('button',{name:'Tra cứu kết quả'}).click();
   await expect(page.locator('p').filter({ hasText: /^Trạng thái:/ })).toContainText('Hoàn thành');
   await expect(page.getByRole('button', { name: 'Chốt hoàn thành', exact: true })).toHaveCount(0);
   const result = await call(admin, 'GET', `/admin/bookings/${booking.id}`);
@@ -506,8 +513,8 @@ test('20 guest landing booking CTA logs in and returns to booking form', async (
   await page.getByLabel('Mật khẩu', { exact: true }).fill(credentials.password);
   await submit(page, 'Đăng nhập', '/auth/login');
   await expect(page).toHaveURL(/\/app\/bookings\/new$/);
-  await expect(page.getByLabel('1. Thú cưng')).toBeVisible();
-  await expect(page.getByLabel('2. Dịch vụ')).toBeVisible();
+  await expect(page.getByRole('combobox',{name:'Thú cưng'})).toBeVisible();
+  await expect(page.getByRole('combobox',{name:'Dịch vụ'})).toBeVisible();
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Chăm chút mỗi ngày');
   await expect(page).toHaveURL(web + '/');

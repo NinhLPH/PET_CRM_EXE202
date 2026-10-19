@@ -1,8 +1,10 @@
-import {useState, type FormEvent} from 'react';
+import {useEffect, useState, type FormEvent} from 'react';
 import {Link, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {api} from '../../api/endpoints';
 import {ApiError} from '../../api/client';
+import {OperationBanner, useOperation} from '../../app/operations';
+import {useAuth} from '../../app/authContext';
 import type {BookingStatus} from '../../api/types';
 import {
     Back,
@@ -23,6 +25,7 @@ import {
 } from '../../app/ui';
 
 export function AdminDashboard() {
+    const {state} = useAuth();
     const dashboard = useQuery({queryKey: ['admin', 'dashboard'], queryFn: ({signal}) => api.admin.dashboard(signal)});
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
         timeZone: 'Asia/Ho_Chi_Minh',
@@ -31,7 +34,7 @@ export function AdminDashboard() {
         day: '2-digit'
     }).formatToParts(new Date()).map(part => [part.type, part.value]));
     const today = `${parts.year}-${parts.month}-${parts.day}`;
-    return <><Title>Tổng quan cửa hàng</Title><QueryState loading={dashboard.isLoading} error={dashboard.error}
+    return <><Title action={<div className="flex flex-wrap gap-3 text-sm"><Link className="underline text-plum-noir" to="/admin/bookings/new">Tạo lịch tại quầy</Link>{state.canVerifyIdentity&&<Link className="underline text-plum-noir" to="/admin/identity">Xác minh danh tính</Link>}</div>}>Tổng quan cửa hàng</Title><QueryState loading={dashboard.isLoading} error={dashboard.error}
                                                           retry={() => void dashboard.refetch()}>
         <div className="grid sm:grid-cols-3 border border-border-custom rounded-panel bg-surface divide-y sm:divide-y-0 sm:divide-x divide-border-custom">{dashboard.data && <><Link className="block p-4 sm:p-5 hover:bg-muted-surface" to="/admin/bookings?status=PENDING"><span className="block text-sm text-text-secondary">Chờ duyệt</span><strong className="block text-2xl font-semibold mt-1 tabular-nums">{dashboard.data.pending}</strong></Link><Link className="block p-4 sm:p-5 hover:bg-muted-surface" to={`/admin/bookings?status=CONFIRMED&date=${today}`}><span className="block text-sm text-text-secondary">Đã xác nhận hôm nay</span><strong className="block text-2xl font-semibold mt-1 tabular-nums">{dashboard.data.confirmedToday}</strong></Link><Link className="block p-4 sm:p-5 hover:bg-muted-surface" to="/admin/reminders"><span className="block text-sm text-text-secondary">Cần nhắc chăm sóc</span><strong className="block text-2xl font-semibold mt-1 tabular-nums">{dashboard.data.remindersDue}</strong></Link></>}</div>
     </QueryState></>;
@@ -43,28 +46,35 @@ export function AdminBookings() {
     const rawStatus = params.get('status');
     const status = rawStatus && ['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].includes(rawStatus) ? rawStatus as BookingStatus : undefined;
     const date = params.get('date') || '';
+    const from = params.get('from') || '';
+    const to = params.get('to') || '';
+    const dateBasis = params.get('dateBasis') === 'completedAt' ? 'completedAt' : 'bookingDate';
     const list = useQuery({
-        queryKey: ['admin', 'bookings', status, date, page],
-        queryFn: ({signal}) => api.admin.bookings({status, date: date || undefined, page}, signal)
+        queryKey: ['admin', 'bookings', status, date, from, to, dateBasis, page],
+        queryFn: ({signal}) => api.admin.bookings({status, date: date || undefined, from: date ? undefined : from || undefined, to: date ? undefined : to || undefined, dateBasis, page}, signal)
     });
-    return <><Title>Lịch hẹn</Title>
+    return <><Title action={<Link className="underline text-plum-noir" to="/admin/bookings/new">Tạo lịch tại quầy</Link>}>Lịch hẹn</Title>
         <div className="flex flex-wrap gap-3 items-end mb-5"><Select label="Trạng thái" value={status || ''} options={[{
             value: '',
             label: 'Tất cả'
         }, ...Object.entries(bookingLabel).map(([value, label]) => ({value, label}))]} onChange={e => {
-            setParams({...(e.target.value ? {status: e.target.value} : {}), ...(date ? {date} : {})});
+            setParams({...(e.target.value ? {status: e.target.value} : {}), ...(date ? {date} : {}), ...(from&&to ? {from,to,dateBasis} : {})});
             setPage(1);
         }}/><Input label="Ngày hẹn (Việt Nam)" type="date" value={date} onChange={e => {
             setParams({...(status ? {status} : {}), ...(e.target.value ? {date: e.target.value} : {})});
             setPage(1);
-        }}/></div>
+        }}/>{from&&to&&<p className="text-sm self-end">Kỳ {from} → {to} theo {dateBasis==='completedAt'?'ngày hoàn thành':'ngày hẹn'} <Button variant="secondary" onClick={()=>{setParams(status?{status}:{});setPage(1);}}>Bỏ kỳ</Button></p>}</div>
         <QueryState loading={list.isLoading} error={list.error}
                     retry={() => void list.refetch()}>{list.data?.items.length ?
-            <div className="border border-border-custom rounded-panel bg-surface overflow-hidden"><table className="w-full text-sm"><thead className="hidden md:table-header-group bg-muted-surface/60 text-left text-text-secondary"><tr><th className="px-4 py-3 font-medium">Lịch hẹn</th><th className="px-4 py-3 font-medium">Khách / thú cưng</th><th className="px-4 py-3 font-medium">Dịch vụ</th><th className="px-4 py-3 font-medium">Trạng thái</th><th className="px-4 py-3 font-medium text-right">Giá tạm tính</th></tr></thead><tbody className="divide-y divide-border-custom">{list.data.items.map(b => <tr key={b.id} className="block md:table-row p-4 md:p-0 hover:bg-canvas"><td className="block md:table-cell md:px-4 md:py-3"><Link to={`/admin/bookings/${b.id}`} className="font-semibold text-plum-noir underline underline-offset-4">#{b.id}</Link><span className="block text-text-secondary mt-1">{dateTime(b.bookingDate)}</span></td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0">{b.customer?.fullName || b.customerId}<span className="block text-text-secondary">{b.pet?.name || b.petId}</span></td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0">{firstService(b)}</td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0 text-plum-noir">{bookingLabel[b.status]}</td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0 md:text-right tabular-nums">{money(b.estimatedTotal)}</td></tr>)}</tbody></table></div> : <Empty>Không có lịch hẹn phù hợp.</Empty>}<Pager page={page} setPage={setPage}
+            <div className="border border-border-custom rounded-panel bg-surface overflow-hidden"><table className="w-full text-sm"><thead className="hidden md:table-header-group bg-muted-surface/60 text-left text-text-secondary"><tr><th className="px-4 py-3 font-medium">Lịch hẹn</th><th className="px-4 py-3 font-medium">Khách / thú cưng</th><th className="px-4 py-3 font-medium">Dịch vụ</th><th className="px-4 py-3 font-medium">Trạng thái</th><th className="px-4 py-3 font-medium text-right">Giá tạm tính</th></tr></thead><tbody className="divide-y divide-border-custom">{list.data.items.map(b => <tr key={b.id} className="block md:table-row p-4 md:p-0 hover:bg-canvas"><td className="block md:table-cell md:px-4 md:py-3"><Link to={`/admin/bookings/${b.id}`} className="font-semibold text-plum-noir underline underline-offset-4">#{b.id}</Link><span className="block text-text-secondary mt-1">{dateTime(b.bookingDate)}</span></td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0">{b.customer?.fullName || b.customerId}<span className="block text-text-secondary">{b.pet?.name || b.petId}</span></td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0">{firstService(b)}</td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0 text-plum-noir">{b.cancellationType === 'NO_SHOW' ? 'Không đến' : bookingLabel[b.status]}</td><td className="block md:table-cell md:px-4 md:py-3 mt-1 md:mt-0 md:text-right tabular-nums">{money(b.estimatedTotal)}</td></tr>)}</tbody></table></div> : <Empty>Không có lịch hẹn phù hợp.</Empty>}<Pager page={page} setPage={setPage}
                                                                                       data={list.data}/></QueryState></>;
 }
 
 type SurchargeDraft = { name: string; amount: string; note: string };
+function readCompleteDraft(key: string): {lines:SurchargeDraft[];discount:string}|null {
+    try { const raw=sessionStorage.getItem(key); if(!raw)return null;const data=JSON.parse(raw);if(Array.isArray(data.lines)&&typeof data.discount==='string')return data; } catch { /* Storage unavailable. */ }
+    return null;
+}
 
 function CompleteForm({bookingId, base, serviceId, done}: {
     bookingId: string;
@@ -72,10 +82,15 @@ function CompleteForm({bookingId, base, serviceId, done}: {
     serviceId: string;
     done: () => Promise<void>
 }) {
-    const [lines, setLines] = useState<SurchargeDraft[]>([]);
-    const [discount, setDiscount] = useState('0');
+    const {state}=useAuth();
+    const draftKey=`tailup_complete_draft_v2:${state.userId}:${bookingId}`;
+    const [draft]=useState(()=>readCompleteDraft(draftKey));
+    const [lines, setLines] = useState<SurchargeDraft[]>(draft?.lines||[]);
+    const [discount, setDiscount] = useState(draft?.discount||'0');
+    useEffect(()=>{try{sessionStorage.setItem(draftKey,JSON.stringify({lines,discount}));}catch{/* Storage unavailable. */}},[draftKey,lines,discount]);
     const [error, setError] = useState<unknown>();
     const [pending, setPending] = useState(false);
+    const completion = useOperation(`complete:${bookingId}`, key => api.admin.bookingOperation(key));
     const config = useQuery({
         queryKey: ['admin', 'services', serviceId, 'reminder-config'],
         queryFn: ({signal}) => api.admin.reminderConfig(serviceId, signal),
@@ -90,21 +105,22 @@ function CompleteForm({bookingId, base, serviceId, done}: {
         setError(undefined);
         setPending(true);
         try {
-            await api.admin.complete(bookingId, {
+            await completion.execute(key => api.admin.complete(bookingId, {
                 surcharges: lines.map(l => ({
                     name: l.name.trim(),
                     amount: Number(l.amount), ...(l.note ? {note: l.note} : {})
                 })), discount: Number(discount)
-            });
+            }, key));
+            try { sessionStorage.removeItem(draftKey); } catch { /* Storage unavailable. */ }
             await done();
         } catch (e) {
             setError(e);
-            if (e instanceof ApiError && (e.status === 409 || e.status === 0 || e.status >= 500 || e.code === 'INVALID_RESPONSE')) await done();
+            if (e instanceof ApiError && e.status === 409) await done();
         } finally {
             setPending(false);
         }
     };
-    return <Card className="mt-5"><h2 className="text-xl font-bold mb-3">Chốt giá và hoàn thành</h2><Notice
+    return <Card className="mt-5"><h2 className="text-xl font-bold mb-3">Chốt giá và hoàn thành</h2><OperationBanner operation={completion} onResolved={() => void done()}/><Notice
         error={error}/>{config.error && <Notice error={config.error}/>}{!config.isLoading && !config.data &&
         <p className="text-red-700 mb-3">Dịch vụ chưa có chu kỳ nhắc ACTIVE. <Link className="underline"
                                                                                    to="/admin/services">Cấu hình dịch
@@ -128,7 +144,7 @@ function CompleteForm({bookingId, base, serviceId, done}: {
                                value={discount} onChange={e => setDiscount(e.target.value)}/><p
             className="font-bold">Giá cuối dự kiến: {money(final)}</p>{final < 0 &&
             <p className="text-red-700 text-sm">Giảm giá vượt quá tổng tiền.</p>}<Button type="submit"
-                                                                                         disabled={pending || !valid}>{pending ? 'Đang chốt…' : 'Chốt hoàn thành'}</Button>
+                                                                                         disabled={pending || !!completion.active || !valid}>{pending ? 'Đang chốt…' : 'Chốt hoàn thành'}</Button>
         </form>
     </Card>;
 }
@@ -141,6 +157,8 @@ export function AdminBookingDetail() {
     const [pending, setPending] = useState(false);
     const [reason, setReason] = useState('');
     const [cancelling, setCancelling] = useState(false);
+    const confirmOp = useOperation(`confirm:${bookingId}`, key => api.admin.bookingOperation(key));
+    const cancelOp = useOperation(`cancel:${bookingId}`, key => api.admin.bookingOperation(key));
     const booking = useQuery({
         queryKey: ['admin', 'booking', bookingId],
         queryFn: ({signal}) => api.admin.booking(bookingId, signal),
@@ -162,11 +180,11 @@ export function AdminBookingDetail() {
             await reload();
         } catch (e) {
             setError(e);
-            if (e instanceof ApiError && (e.status === 409 || e.status === 0 || e.status >= 500 || e.code === 'INVALID_RESPONSE')) await reload();
+            if (e instanceof ApiError && e.status === 409) await reload();
         } finally {
             setPending(false);
         }
     };
     const b = booking.data;
-    return <><Back to="/admin/bookings"/><Title>Lịch hẹn #{bookingId}</Title><QueryState loading={booking.isLoading} error={booking.error} retry={() => void booking.refetch()}>{b && <div className="max-w-4xl"><Notice error={error}/><div className="grid lg:grid-cols-[minmax(0,1fr)_260px] gap-6 items-start"><section className="border-t border-border-custom"><h2 className="font-serif text-lg font-semibold py-4">Thông tin lịch hẹn</h2><div className="space-y-0 text-sm"><p className="border-t border-border-custom py-3"><b>Trạng thái:</b> {bookingLabel[b.status]}</p><p className="border-t border-border-custom py-3"><b>Khách:</b> {b.customer?.fullName || b.customerId} {b.customer?.phone && `· ${b.customer.phone}`}</p><p className="border-t border-border-custom py-3"><b>Thú cưng:</b> {b.pet?.name || b.petId}</p><p className="border-t border-border-custom py-3"><b>Dịch vụ:</b> {firstService(b)}</p><p className="border-t border-border-custom py-3"><b>Lúc hẹn:</b> {dateTime(b.bookingDate)}</p><p className="border-t border-border-custom py-3"><b>Ghi chú:</b> {b.note || '—'}</p><p className="border-t border-border-custom py-3"><b>Giá lúc đặt:</b> {money(b.services?.[0]?.basePrice ?? b.estimatedTotal)}</p><p className="border-y border-border-custom py-3"><b>Cân nặng lúc đặt:</b> {b.services?.[0]?.petWeightSnapshot || '—'} kg</p></div>{b.status === 'COMPLETED' && <div className="border-b border-border-custom py-5 text-sm space-y-2"><h2 className="font-serif text-lg font-semibold">Tổng kết thanh toán</h2><p><b>Phụ phí:</b></p>{b.surcharges?.map(s => <p key={s.id}>{s.surchargeName}: {money(s.amount)}</p>)}<p>Giảm giá: {money(b.discountAmount)}</p><p><b>Giá cuối: {money(b.finalTotal)}</b></p><p>Hoàn thành: {dateTime(b.completedAt)}</p></div>}{b.status === 'CANCELLED' && <p className="border-b border-border-custom py-4 text-sm">Lý do hủy: {b.cancellationReason || '—'}</p>}</section><aside className="border border-border-custom rounded-panel bg-surface p-4"><h2 className="font-serif text-lg font-semibold mb-4">Thao tác</h2><div className="space-y-3">{b.status === 'PENDING' && <Button disabled={pending} onClick={() => { if (window.confirm('Xác nhận lịch hẹn?')) void action(() => api.admin.confirm(bookingId)); }}>Xác nhận lịch</Button>}{(b.status === 'PENDING' || b.status === 'CONFIRMED') && (cancelling ? <form onSubmit={e => { e.preventDefault(); if (window.confirm('Hủy lịch hẹn này?')) void action(async () => { await api.admin.cancel(bookingId, reason || undefined); setCancelling(false); }); }} className="space-y-2"><TextArea label="Lý do hủy (tùy chọn)" maxLength={255} value={reason} onChange={e => setReason(e.target.value)}/><Button type="submit" variant="danger" disabled={pending}>Xác nhận hủy</Button></form> : <Button variant="danger" onClick={() => setCancelling(true)}>Hủy lịch</Button>)}{b.status !== 'PENDING' && b.status !== 'CONFIRMED' && <p className="text-sm text-text-secondary">Không có thao tác cần thực hiện.</p>}</div></aside></div>{b.status === 'CONFIRMED' && b.services?.[0] && <div className="max-w-2xl mt-6"><CompleteForm bookingId={bookingId} base={b.services[0].basePrice} serviceId={b.services[0].serviceId} done={async () => { await reload(); navigate(`/admin/bookings/${bookingId}`, {replace: true}); }}/></div>}</div>}</QueryState></>;
+    return <><Back to="/admin/bookings"/><Title>Lịch hẹn #{bookingId}</Title><QueryState loading={booking.isLoading} error={booking.error} retry={() => void booking.refetch()}>{b && <div className="max-w-4xl"><Notice error={error}/><OperationBanner operation={confirmOp} onResolved={() => void reload()}/><OperationBanner operation={cancelOp} onResolved={() => void reload()}/><div className="grid lg:grid-cols-[minmax(0,1fr)_260px] gap-6 items-start"><section className="border-t border-border-custom"><h2 className="font-serif text-lg font-semibold py-4">Thông tin lịch hẹn</h2><div className="space-y-0 text-sm"><p className="border-t border-border-custom py-3"><b>Trạng thái:</b> {b.cancellationType === 'NO_SHOW' ? 'Không đến' : bookingLabel[b.status]}</p><p className="border-t border-border-custom py-3"><b>Khách:</b> {b.customer?.fullName || b.customerId} {b.customer?.phone && `· ${b.customer.phone}`}</p><p className="border-t border-border-custom py-3"><b>Thú cưng:</b> {b.pet?.name || b.petId}</p><p className="border-t border-border-custom py-3"><b>Dịch vụ:</b> {firstService(b)}</p><p className="border-t border-border-custom py-3"><b>Lúc hẹn:</b> {dateTime(b.bookingDate)} → {dateTime(b.scheduledEnd)}</p><p className="border-t border-border-custom py-3"><b>Ghi chú:</b> {b.note || '—'}</p><p className="border-t border-border-custom py-3"><b>Giá lúc đặt:</b> {money(b.services?.[0]?.basePrice ?? b.estimatedTotal)}</p><p className="border-y border-border-custom py-3"><b>Cân nặng lúc đặt:</b> {b.services?.[0]?.petWeightSnapshot || '—'} kg</p></div>{b.status === 'COMPLETED' && <div className="border-b border-border-custom py-5 text-sm space-y-2"><h2 className="font-serif text-lg font-semibold">Tổng kết giá trị dịch vụ</h2><p><b>Phụ phí:</b></p>{b.surcharges?.map(s => <p key={s.id}>{s.surchargeName}: {money(s.amount)}</p>)}<p>Giảm giá: {money(b.discountAmount)}</p><p><b>Giá cuối: {money(b.finalTotal)}</b></p><p>Hoàn thành: {dateTime(b.completedAt)}</p></div>}{b.status === 'CANCELLED' && <p className="border-b border-border-custom py-4 text-sm">Lý do hủy: {b.cancellationReason || '—'}</p>}</section><aside className="border border-border-custom rounded-panel bg-surface p-4"><h2 className="font-serif text-lg font-semibold mb-4">Thao tác</h2><div className="space-y-3">{b.status === 'PENDING' && <Button disabled={pending||!!confirmOp.active||!!cancelOp.active} onClick={() => { if (window.confirm('Xác nhận lịch hẹn?')) void action(() => confirmOp.execute(key => api.admin.confirm(bookingId, key))); }}>Xác nhận lịch</Button>}{(b.status === 'PENDING' || b.status === 'CONFIRMED') && (cancelling ? <form onSubmit={e => { e.preventDefault(); if (window.confirm('Hủy lịch hẹn này?')) void action(async () => { await cancelOp.execute(key => api.admin.cancel(bookingId, reason || undefined, key)); setCancelling(false); }); }} className="space-y-2"><TextArea label="Lý do hủy (tùy chọn)" maxLength={255} value={reason} onChange={e => setReason(e.target.value)}/><Button type="submit" variant="danger" disabled={pending||!!confirmOp.active||!!cancelOp.active}>Xác nhận hủy</Button></form> : <Button variant="danger" disabled={!!confirmOp.active||!!cancelOp.active} onClick={() => setCancelling(true)}>Hủy lịch</Button>)}{b.status !== 'PENDING' && b.status !== 'CONFIRMED' && <p className="text-sm text-text-secondary">Không có thao tác cần thực hiện.</p>}</div></aside></div>{b.status === 'CONFIRMED' && b.services?.[0] && <div className="max-w-2xl mt-6"><CompleteForm bookingId={bookingId} base={b.services[0].basePrice} serviceId={b.services[0].serviceId} done={async () => { await reload(); navigate(`/admin/bookings/${bookingId}`, {replace: true}); }}/></div>}</div>}</QueryState></>;
 }

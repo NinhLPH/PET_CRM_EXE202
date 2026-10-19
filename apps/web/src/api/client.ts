@@ -5,10 +5,12 @@ export class ApiError extends Error {
   code: string;
   errors: ApiErrorBody['errors'];
   currentQuote?: ApiErrorBody['currentQuote'];
-  constructor(status: number, code: string, message: string, errors: ApiErrorBody['errors'] = [], currentQuote?: ApiErrorBody['currentQuote']) {
+  bookingIds?: string[];
+  requestId?: string;
+  constructor(status: number, code: string, message: string, errors: ApiErrorBody['errors'] = [], currentQuote?: ApiErrorBody['currentQuote'], bookingIds?: string[], requestId?: string) {
     super(message);
     this.name = 'ApiError';
-    this.status = status; this.code = code; this.errors = errors; this.currentQuote = currentQuote;
+    this.status = status; this.code = code; this.errors = errors; this.currentQuote = currentQuote; this.bookingIds = bookingIds; this.requestId = requestId;
   }
 }
 
@@ -37,7 +39,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     if (!response.ok) {
       const data = (body && typeof body === 'object' ? body : {}) as ApiErrorBody;
       if (response.status === 401 && !path.startsWith('/auth/')) window.dispatchEvent(new Event('petcare:session-expired'));
-      throw new ApiError(response.status, data.code || `HTTP_${response.status}`, typeof data.message === 'string' ? data.message : 'Yêu cầu không thành công', data.errors, data.currentQuote);
+      throw new ApiError(response.status, data.code || `HTTP_${response.status}`, typeof data.message === 'string' ? data.message : 'Yêu cầu không thành công', data.errors, data.currentQuote, data.bookingIds, data.requestId || response.headers.get('X-Request-Id') || undefined);
     }
     if (!validJson && response.status !== 204) throw new ApiError(response.status, 'INVALID_RESPONSE', 'Máy chủ trả dữ liệu không hợp lệ. Vui lòng thử lại.');
     return body as T;
@@ -59,5 +61,5 @@ export function send<T>(method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', path: strin
 export function errorText(error: unknown): string { return error instanceof Error ? error.message : typeof error === 'string' && error ? error : 'Có lỗi xảy ra. Vui lòng thử lại.'; }
 export function fieldErrors(error: unknown): Record<string, string> {
   if (!(error instanceof ApiError)) return {};
-  return Object.fromEntries((Array.isArray(error.errors) ? error.errors : []).filter(item => typeof item.field === 'string' && Array.isArray(item.messages)).map(item => [item.field, item.messages.join(', ')]));
+  return Object.fromEntries((Array.isArray(error.errors) ? error.errors : []).filter((item): item is {field:string;messages:string[]} => typeof item === 'object' && typeof item.field === 'string' && Array.isArray(item.messages)).map(item => [item.field, item.messages.join(', ')]));
 }

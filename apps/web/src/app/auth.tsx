@@ -17,34 +17,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const current = ++generation.current;
     setState({ status: 'checking' });
     try {
-      const profile = await api.profile.get(controller.signal);
+      const context = await api.auth.context(controller.signal);
       if (current !== generation.current) return;
-      retainPendingForCustomer(profile.id);
-      client.setQueryData(['profile'], profile);
-      setState({ status: 'authenticated', role: 'CUSTOMER' });
+      await client.cancelQueries(); client.clear();
+      if (context.role === 'CUSTOMER' && context.customerId) retainPendingForCustomer(context.customerId);
+      else clearPendingBooking();
+      setState({ status: 'authenticated', role: context.role, userId: context.userId, customerId: context.customerId, canVerifyIdentity: context.capabilities.canVerifyIdentity });
     } catch (error) {
       if (current !== generation.current) return;
-      if (error instanceof ApiError && error.status === 401) { client.clear(); clearPendingBooking(); setState({ status: 'anonymous' }); return; }
-      if (error instanceof ApiError && error.status === 403) {
-        try {
-          const dashboard = await api.admin.dashboard(controller.signal);
-          if (current !== generation.current) return;
-          client.setQueryData(['admin', 'dashboard'], dashboard);
-          clearPendingBooking();
-          setState({ status: 'authenticated', role: 'ADMIN' });
-        } catch (second) {
-          if (current !== generation.current) return;
-          if (second instanceof ApiError && second.status === 401) { client.clear(); clearPendingBooking(); setState({ status: 'anonymous' }); }
-          else setState({ status: 'error', error: second instanceof Error ? second.message : 'Không xác minh được phiên đăng nhập.' });
-        }
-        return;
-      }
+      if (error instanceof ApiError && error.status === 401) { await client.cancelQueries(); client.clear(); setState({ status: 'anonymous' }); return; }
       setState({ status: 'error', error: error instanceof Error ? error.message : 'Không xác minh được phiên đăng nhập.' });
     }
   }, [client]);
   useEffect(() => { let active = true; queueMicrotask(() => { if (active) void refresh(); }); return () => { active = false; }; }, [refresh]);
   useEffect(() => {
-    const onExpired = () => { generation.current++; probe.current?.abort(); client.clear(); clearPendingBooking(); setState({ status: 'anonymous' }); };
+    const onExpired = () => { generation.current++; probe.current?.abort(); void client.cancelQueries().then(() => client.clear()); setState({ status: 'anonymous' }); };
     window.addEventListener('petcare:session-expired', onExpired);
     return () => window.removeEventListener('petcare:session-expired', onExpired);
   }, [client]);
@@ -53,12 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const current = ++generation.current;
     await client.cancelQueries(); client.clear();
     const session = await api.auth.login({ phone, password });
-    if (current === generation.current) { clearPendingBooking(); setState({ status: 'authenticated', role: session.role, userId: session.userId }); }
+    const context = await api.auth.context();
+    if (current === generation.current) {
+      if (context.role === 'CUSTOMER' && context.customerId) retainPendingForCustomer(context.customerId);
+      else clearPendingBooking();
+      setState({ status: 'authenticated', role: context.role, userId: context.userId, customerId: context.customerId, canVerifyIdentity: context.capabilities.canVerifyIdentity });
+    }
     return session.role;
   }, [client]);
   const logout = useCallback(async () => {
     try { await api.auth.logout(); }
-    catch (error) { if (!(error instanceof ApiError && error.status === 401)) throw error; }
+    catch (error) { if (!(error instanceof ApiError && error.status === 401)) {
+      await client.cancelQueries(); client.clear(); throw error;
+    } }
     generation.current++; probe.current?.abort(); await client.cancelQueries(); client.clear(); clearPendingBooking(); setState({ status: 'anonymous' });
   }, [client]);
   const value = useMemo(() => ({ state, refresh, login, logout }), [state, refresh, login, logout]);

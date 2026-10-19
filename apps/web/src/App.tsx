@@ -2,10 +2,16 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './app/authContext';
 import { Layout } from './app/layout';
 import { features } from './app/features';
-import { LoginPage, RegisterPage } from './pages/v1/AuthPages';
+import { LoginPage, RegisterPage, RecoverPage } from './pages/v1/AuthPages';
+import { AdminSchedule } from './pages/v2/AdminPages';
+import { AdminIdentity } from './pages/v2/AdminIdentityPage';
+import { AdminAudit, AdminReadiness, AdminReports } from './pages/v2/AdminInsights';
+import { AdminBookingNew } from './pages/v2/AdminCounterBooking';
+import { AdminBookingExtras } from './pages/v2/BookingWorkflow';
 import { GuestLandingPage } from './pages/v1/GuestLandingPage';
 import { CustomerHome, CustomerProfile, CustomerPets, CustomerPetDetail } from './pages/v1/CustomerPages';
-import { CustomerBookingNew, CustomerBookings, CustomerBookingDetail } from './pages/v1/CustomerBookings';
+import { CustomerBookings, CustomerBookingDetail } from './pages/v1/CustomerBookings';
+import { CustomerBookingNewV2 } from './pages/v2/CustomerBookingNew';
 import { AdminDashboard, AdminBookings, AdminBookingDetail } from './pages/v1/AdminBookings';
 import { AdminCustomers, AdminCustomerDetail } from './pages/v1/AdminCustomers';
 import { AdminServices } from './pages/v1/AdminServices';
@@ -29,12 +35,13 @@ export default function App() {
     <Route path="/" element={<GuestLandingPage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage />} />
+    <Route path="/recover" element={<RecoverPage />} />
     {features.grooming && <Route element={<Gate role="CUSTOMER" />}><Route element={<Layout />}>
       <Route path="/app" element={<CustomerHome />} />
       <Route path="/app/profile" element={<CustomerProfile />} />
       <Route path="/app/pets" element={<CustomerPets />} />
       <Route path="/app/pets/:petId" element={<CustomerPetDetail />} />
-      <Route path="/app/bookings/new" element={<CustomerBookingNew />} />
+      <Route path="/app/bookings/new" element={<CustomerBookingNewV2 />} />
       <Route path="/app/bookings" element={<CustomerBookings />} />
       <Route path="/app/bookings/:bookingId" element={<CustomerBookingDetail />} />
     </Route></Route>}
@@ -44,9 +51,15 @@ export default function App() {
       <Route path="/admin/customers/:customerId" element={<AdminCustomerDetail />} />
       <Route path="/admin/services" element={<AdminServices />} />
       <Route path="/admin/bookings" element={<AdminBookings />} />
-      <Route path="/admin/bookings/:bookingId" element={<AdminBookingDetail />} />
+      <Route path="/admin/bookings/new" element={<AdminBookingNew />} />
+      <Route path="/admin/bookings/:bookingId" element={<><AdminBookingDetail /><AdminBookingExtras /></>} />
       <Route path="/admin/reminders" element={<AdminReminders />} />
       <Route path="/admin/reminders/:reminderId" element={<AdminReminderDetail />} />
+      <Route path="/admin/settings/schedule" element={<AdminSchedule />} />
+      <Route path="/admin/reports" element={<AdminReports />} />
+      <Route path="/admin/audit" element={<AdminAudit />} />
+      <Route path="/admin/readiness" element={<AdminReadiness />} />
+      <Route path="/admin/identity" element={<AdminIdentity />} />
     </Route></Route>}
     <Route path="/forbidden" element={<RouteState forbidden />} />
     <Route path="*" element={<RouteState />} />
