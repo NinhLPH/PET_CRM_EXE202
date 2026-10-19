@@ -17,9 +17,13 @@ import { PrismaService } from '../prisma/prisma.service';
 export const PUBLIC = 'publicRoute';
 export const ADMIN = 'adminRoute';
 export const CUSTOMER = 'customerRoute';
+export const IDENTITY_OPERATOR = 'identityOperatorRoute';
+export const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
+export const SESSION_TOUCH_MS = 5 * 60 * 1000;
 export const Public = () => SetMetadata(PUBLIC, true);
 export const Admin = () => SetMetadata(ADMIN, true);
 export const Customer = () => SetMetadata(CUSTOMER, true);
+export const IdentityOperator = () => SetMetadata(IDENTITY_OPERATOR, true);
 
 export function id(value: string): bigint {
   if (!/^[1-9]\d*$/.test(value))
@@ -52,6 +56,8 @@ export function serialize(value: unknown, key = ''): unknown {
       'finalTotal',
       'discountAmount',
       'amount',
+      'delta',
+      'resultTotal',
     ].includes(key)
       ? Number(value)
       : value.toString();
@@ -114,6 +120,7 @@ export interface Actor {
   role: 'CUSTOMER' | 'ADMIN';
   customerId?: bigint;
   sessionId: bigint;
+  canVerifyIdentity?: boolean;
 }
 
 export type ActorRequest = Request & { actor: Actor };
@@ -147,6 +154,7 @@ export class SessionGuard implements CanActivate {
       !session ||
       session.revokedAt ||
       session.expiresAt <= new Date() ||
+      session.lastSeenAt.getTime() + SESSION_IDLE_MS <= Date.now() ||
       session.user.status !== 'ACTIVE'
     )
       throw new UnauthorizedException('Phiên đã hết hạn');
@@ -166,6 +174,14 @@ export class SessionGuard implements CanActivate {
       session.user.role !== 'CUSTOMER'
     )
       throw new ForbiddenException('Bạn không có quyền thực hiện');
+    if (
+      this.reflector.getAllAndOverride<boolean>(IDENTITY_OPERATOR, [
+        context.getHandler(),
+        context.getClass(),
+      ]) &&
+      (session.user.role !== 'ADMIN' || !session.user.canVerifyIdentity)
+    )
+      throw new ForbiddenException('Chưa có quyền xác minh danh tính');
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       checkOrigin(request);
     }
@@ -174,28 +190,33 @@ export class SessionGuard implements CanActivate {
       role: session.user.role,
       customerId: session.user.customer?.id,
       sessionId: session.id,
+      canVerifyIdentity: session.user.canVerifyIdentity,
     } satisfies Actor;
+    if (session.lastSeenAt.getTime() + SESSION_TOUCH_MS < Date.now()) {
+      await this.prisma.userSession.updateMany({
+        where: { id: session.id, revokedAt: null, lastSeenAt: { lt: new Date(Date.now() - SESSION_TOUCH_MS) } },
+        data: { lastSeenAt: new Date() },
+      });
+    }
     return true;
   }
 }
 
 @Injectable()
 export class AuthRateGuard implements CanActivate {
-  private readonly attempts = new Map<
-    string,
-    { count: number; resetAt: number }
-  >();
-  canActivate(context: ExecutionContext) {
+  constructor(private readonly prisma: PrismaService) {}
+  async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     checkOrigin(req);
-    const key = `${req.ip}:${req.route?.path ?? req.path}`;
-    const now = Date.now();
-    const entry = this.attempts.get(key);
-    if (!entry || entry.resetAt <= now) {
-      this.attempts.set(key, { count: 1, resetAt: now + 60_000 });
-      return true;
-    }
-    if (++entry.count > 10)
+    const key = digest(`${req.ip}:${req.route?.path ?? req.path}`);
+    const rows = await this.prisma.$queryRaw<{ count: number }[]>`
+      INSERT INTO request_rate_limits (key, count, reset_at)
+      VALUES (${key}, 1, CURRENT_TIMESTAMP + INTERVAL '1 minute')
+      ON CONFLICT (key) DO UPDATE SET
+        count = CASE WHEN request_rate_limits.reset_at <= CURRENT_TIMESTAMP THEN 1 ELSE request_rate_limits.count + 1 END,
+        reset_at = CASE WHEN request_rate_limits.reset_at <= CURRENT_TIMESTAMP THEN CURRENT_TIMESTAMP + INTERVAL '1 minute' ELSE request_rate_limits.reset_at END
+      RETURNING count`;
+    if (rows[0]?.count > 10)
       throw new HttpException('Quá nhiều yêu cầu, vui lòng thử lại sau', 429);
     return true;
   }

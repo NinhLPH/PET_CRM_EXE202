@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { Actor, addLocalDays, id, localDayStart, page } from '../common/common';
+import { Actor, addLocalDays, digest, id, localDayStart, page, serialize } from '../common/common';
 import { ContactDto } from './dto/reminders.dto';
 
 @Injectable()
@@ -25,7 +25,7 @@ export class ReminderWorkflowService {
       this.db.petReminder.findMany({
         where,
         include: { customer: true, pet: true, service: true },
-        orderBy: { reminderDate: 'asc' },
+        orderBy: [{ reminderDate: 'asc' }, { id: 'asc' }],
         skip: p.skip,
         take: p.take,
       }),
@@ -48,8 +48,19 @@ export class ReminderWorkflowService {
     if (!item) throw new NotFoundException('Không tìm thấy reminder');
     return item;
   }
-  async contact(reminderId: string, actor: Actor, body: ContactDto) {
+  async contact(reminderId: string, actor: Actor, body: ContactDto, key?: string) {
     return this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('pilot:schedule', 0))`;
+      if (key && key.length > 100) throw new BadRequestException('Idempotency-Key quá dài');
+      const hash = digest(JSON.stringify({ reminderId, method: body.method, note: body.note ?? null }));
+      if (key) {
+        const prior = await tx.idempotencyRequest.findUnique({ where: { userId_key: { userId: actor.id, key } } });
+        if (prior) {
+          if (prior.operation !== 'CONTACT' || prior.requestHash !== hash)
+            throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED', message: 'Idempotency-Key đã dùng cho request khác' });
+          return prior.result ?? { reminderId, replay: true };
+        }
+      }
       const reminder = await tx.petReminder.findUnique({
         where: { id: id(reminderId) },
       });
@@ -79,7 +90,16 @@ export class ReminderWorkflowService {
           createdBy: actor.id,
         },
       });
-      return tx.petReminder.findUniqueOrThrow({ where: { id: reminder.id } });
+      const result = await tx.petReminder.findUniqueOrThrow({ where: { id: reminder.id } });
+      await tx.auditEvent.create({ data: {
+        actorId: actor.id, action: 'CONTACT', objectType: 'REMINDER', objectId: reminder.id.toString(),
+        change: { method: body.method, bookingId: reminder.bookingId.toString() },
+      } });
+      if (key) await tx.idempotencyRequest.create({ data: {
+        userId: actor.id, key, requestHash: hash, operation: 'CONTACT',
+        bookingId: reminder.bookingId, result: serialize(result) as Prisma.InputJsonValue,
+      } });
+      return result;
     });
   }
 }

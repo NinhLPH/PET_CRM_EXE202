@@ -20,21 +20,22 @@ describe('reminder workflow', () => {
   });
   it('records contact and CRM activity in one transaction', async () => {
     const tx = {
+      $executeRaw: jest.fn().mockResolvedValue([]),
       petReminder: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({
-            id: 1n,
-            customerId: 2n,
-            petId: 3n,
-            status: 'PENDING',
-          }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 1n,
+          customerId: 2n,
+          petId: 3n,
+          bookingId: 6n,
+          status: 'PENDING',
+        }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUniqueOrThrow: jest
           .fn()
           .mockResolvedValue({ id: 1n, status: 'CONTACTED' }),
       },
       crmActivity: { create: jest.fn().mockResolvedValue({}) },
+      auditEvent: { create: jest.fn().mockResolvedValue({}) },
     };
     const db = {
       $transaction: jest.fn().mockImplementation((callback) => callback(tx)),

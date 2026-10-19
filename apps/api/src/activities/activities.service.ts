@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ActivityType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Actor, id, page } from '../common/common';
+import { runResourceOperation } from '../common/resource-operation';
 import { CustomersService } from '../customers/customers.service';
 import { ActivityDto } from './dto/activities.dto';
 
@@ -19,15 +20,24 @@ export class ActivitiesService {
     return { items, total, page: pagination.page, limit: pagination.limit };
   }
 
-  async addActivity(customerId: string, actor: Actor, body: ActivityDto) {
+  async addActivity(customerId: string, actor: Actor, body: ActivityDto, key?: string) {
     if (body.type !== ActivityType.NOTE) throw new BadRequestException('Chỉ được thêm ghi chú thủ công');
     const customer = await this.customers.customer(customerId);
-    if (body.petId) {
-      const pet = await this.db.pet.findUnique({ where: { id: id(body.petId) } });
-      if (!pet || pet.customerId !== customer.id) throw new BadRequestException('Pet không thuộc khách hàng');
-    }
-    return this.db.crmActivity.create({
-      data: { customerId: customer.id, petId: body.petId ? id(body.petId) : null, type: 'NOTE', content: body.content.trim(), createdBy: actor.id },
+    return runResourceOperation(this.db, actor.id, key, 'CREATE_NOTE', {
+      customerId: customer.id.toString(), petId: body.petId ?? null, content: body.content.trim(),
+    }, async (tx) => {
+      if (body.petId) {
+        const pet = await tx.pet.findUnique({ where: { id: id(body.petId) } });
+        if (!pet || pet.customerId !== customer.id) throw new BadRequestException('Pet không thuộc khách hàng');
+      }
+      const result = await tx.crmActivity.create({
+        data: { customerId: customer.id, petId: body.petId ? id(body.petId) : null, type: 'NOTE', content: body.content.trim(), createdBy: actor.id },
+      });
+      await tx.auditEvent.create({ data: {
+        actorId: actor.id, action: 'CREATE_NOTE', objectType: 'CRM_ACTIVITY', objectId: result.id.toString(),
+        change: { customerId: customer.id.toString(), petId: body.petId ?? null },
+      } });
+      return result;
     });
   }
 }
