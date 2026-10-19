@@ -81,6 +81,9 @@ export class AdminBookingsApiController {
     query: {
       status?: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
       date?: string;
+      from?: string;
+      to?: string;
+      dateBasis?: 'bookingDate' | 'completedAt';
       page?: string;
       limit?: string;
     },

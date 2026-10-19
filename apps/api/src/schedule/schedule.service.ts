@@ -199,7 +199,21 @@ export class ScheduleService {
     return rule;
   }
 
-  async availability(serviceId: bigint, date: string) {
+  async bookingAvailability(bookingId: bigint, date: string) {
+    const booking = await this.db.booking.findUnique({
+      where: { id: bookingId }, include: { services: true },
+    });
+    if (!booking || !['PENDING','CONFIRMED'].includes(booking.status) || booking.services.length !== 1 || !booking.services[0].durationMinutes)
+      throw new ConflictException('Booking không thể dời');
+    return this.availability(booking.services[0].serviceId, date, {
+      durationMinutes: booking.services[0].durationMinutes,
+      excludeBookingId: booking.status === 'CONFIRMED' ? booking.id : undefined,
+      petId: booking.petId,
+      pending: booking.status === 'PENDING',
+    });
+  }
+
+  async availability(serviceId: bigint, date: string, options?: {durationMinutes:number;excludeBookingId?:bigint;petId:bigint;pending:boolean}) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
       throw new BadRequestException('Ngày không hợp lệ');
     const day = new Date(`${date}T00:00:00+07:00`);
@@ -207,15 +221,9 @@ export class ScheduleService {
       throw new BadRequestException('Ngày không hợp lệ');
     if (day < localDayStart(new Date()) || day > addLocalDays(new Date(), 90))
       throw new BadRequestException('Ngày ngoài phạm vi 90 ngày');
-    const service = await this.db.service.findUnique({
-      where: { id: serviceId },
-    });
-    if (
-      !service ||
-      service.status !== 'ACTIVE' ||
-      !service.estimatedDuration ||
-      service.estimatedDuration < 1
-    )
+    const service = options ? null : await this.db.service.findUnique({ where: { id: serviceId } });
+    const duration = options?.durationMinutes ?? service?.estimatedDuration;
+    if ((!options && (!service || service.status !== 'ACTIVE')) || !duration || duration < 1)
       throw new ConflictException('Dịch vụ chưa sẵn sàng');
     const rule = await this.rule(this.db, day);
     if (!rule) return { date, slots: [] };
@@ -236,20 +244,21 @@ export class ScheduleService {
     for (const interval of rule.intervals) {
       for (
         let value = minute(interval.start);
-        value + service.estimatedDuration <= minute(interval.end);
+        value + duration <= minute(interval.end);
         value += rule.slotStep
       ) {
         const start = new Date(day.getTime() + value * 60000);
         const end = new Date(
-          start.getTime() + service.estimatedDuration * 60000,
+          start.getTime() + duration * 60000,
         );
         const occupied = await this.db.booking.findMany({
           where: {
             status: 'CONFIRMED',
             bookingDate: { lt: end },
             scheduledEnd: { gt: start },
+            ...(options?.excludeBookingId ? { id: { not: options.excludeBookingId } } : {}),
           },
-          select: { bookingDate: true, scheduledEnd: true },
+          select: { petId: true, bookingDate: true, scheduledEnd: true },
         });
         const points = [
           { time: start.getTime(), delta: 1 },
@@ -267,10 +276,10 @@ export class ScheduleService {
         }
         points.sort((a, b) => a.time - b.time || a.delta - b.delta);
         let count = 0,
-          available = start > new Date();
+          available = start > new Date() && (options?.pending || !occupied.some(item=>item.petId===options?.petId));
         for (const point of points) {
           count += point.delta;
-          if (count > rule.capacity) available = false;
+          if (!options?.pending && count > rule.capacity) available = false;
         }
         slots.push({ start, end, available });
       }

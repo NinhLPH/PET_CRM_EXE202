@@ -57,6 +57,10 @@ export class AvailabilityController {
 @Controller('admin/schedule')
 export class ScheduleController {
   constructor(private readonly schedule: ScheduleService) {}
+  @Get('bookings/:id/availability') bookingAvailability(
+    @Param('id') bookingId: string,
+    @Query('date') date: string,
+  ) { return this.schedule.bookingAvailability(id(bookingId),date); }
   @Get('weekly') listWeekly() {
     return this.schedule.weekly();
   }

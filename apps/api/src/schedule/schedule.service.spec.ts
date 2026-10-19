@@ -102,3 +102,24 @@ describe('schedule and capacity', () => {
     expect(tx.booking.findMany).not.toHaveBeenCalled();
   });
 });
+
+describe('reschedule availability', () => {
+  it('uses the booking duration snapshot and excludes its current reservation', async () => {
+    const date = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()+7*86400000));
+    const db = {
+      booking: {
+        findUnique: jest.fn().mockResolvedValue({ id: 9n, petId: 3n, status: 'CONFIRMED', services: [{serviceId: 4n, durationMinutes: 45}] }),
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      service: { findUnique: jest.fn() },
+      dateException: {findUnique: jest.fn().mockResolvedValue(null)},
+      workingSchedule: {findUnique: jest.fn().mockResolvedValue({intervals:[{start:'08:00',end:'12:00'}],capacity:2,slotStep:30})},
+    };
+    const result = await new ScheduleService(db as never).bookingAvailability(9n,date);
+    expect(result.slots.length).toBeGreaterThan(0);
+    expect(result.slots[0].end.getTime()-result.slots[0].start.getTime()).toBe(45*60000);
+    expect(db.service.findUnique).not.toHaveBeenCalled();
+    expect(db.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({id:{not:9n}})}));
+  });
+});

@@ -1,6 +1,27 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { BookingWorkflowService } from './bookings.service';
 
+describe('customer booking projection', () => {
+  it('includes visible cancellation and adjustment history without internal notes', () => {
+    const service = new BookingWorkflowService({} as never, {} as never);
+    const result = service['customerBooking']({
+      id: 1n, customerId: 2n, bookingDate: new Date('2026-10-19T02:00:00Z'), scheduledEnd: new Date('2026-10-19T03:00:00Z'),
+      status: 'COMPLETED', version: 1, note: null, estimatedTotal: 100000,
+      finalTotal: 110000, discountAmount: 0, cancellationType: null, cancellationReason: null,
+      pet: {id: 3n,name:'Milo',species:'DOG'},
+      services: [{serviceId:4n,serviceNameSnapshot:'Tắm',basePrice:100000,durationMinutes:60,service:{serviceName:'Khác'}}],
+      surcharges: [{surchargeName:'Lông dày',amount:10000}],
+      adjustments: [{id:5n,delta:-20000,reason:'Điều chỉnh',reversalRef:null,createdAt:new Date('2026-10-20T00:00:00Z'),actorId:99n}],
+      events: [{action:'COMPLETE',oldStatus:'CONFIRMED',newStatus:'COMPLETED',oldStart:null,newStart:null,createdAt:new Date('2026-10-19T03:00:00Z'),actorId:99n}],
+    } as never);
+    expect(result.services[0].serviceName).toBe('Tắm');
+    expect(result.surcharges?.[0].name).toBe('Lông dày');
+    expect(result.adjustments?.[0].delta).toBe(-20000);
+    expect(result.adjustments?.[0]).not.toHaveProperty('actorId');
+    expect(result.events[0]).not.toHaveProperty('actorId');
+  });
+});
+
 describe('complete booking', () => {
   const booking = {
     id: 1n,

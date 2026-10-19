@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
@@ -21,6 +21,15 @@ import { AuthWorkflowService } from './auth.service';
 @Controller('auth')
 export class AuthApiController {
   constructor(private readonly auth: AuthWorkflowService) {}
+  @Get('context') context(@Req() request: ActorRequest) {
+    const actor = request.actor;
+    return {
+      role: actor.role,
+      userId: actor.id,
+      customerId: actor.customerId ?? null,
+      capabilities: { canVerifyIdentity: !!actor.canVerifyIdentity },
+    };
+  }
   @Public() @UseGuards(AuthRateGuard) @Post('register') register(
     @Body() body: RegisterDto,
   ) {

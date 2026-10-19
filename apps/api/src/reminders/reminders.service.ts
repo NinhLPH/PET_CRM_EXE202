@@ -46,7 +46,13 @@ export class ReminderWorkflowService {
       },
     });
     if (!item) throw new NotFoundException('Không tìm thấy reminder');
-    return item;
+    const previousReminders = await this.db.petReminder.findMany({
+      where: { petId: item.petId, serviceId: item.serviceId, id: { not: item.id } },
+      orderBy: [{ completedDate: 'desc' }, { id: 'desc' }],
+      take: 5,
+      select: { id: true, bookingId: true, status: true, contactedAt: true, contactMethod: true, replacementReason: true, replacedByReminderId: true },
+    });
+    return { ...item, previousReminders };
   }
   async contact(reminderId: string, actor: Actor, body: ContactDto, key?: string) {
     return this.db.$transaction(async (tx) => {

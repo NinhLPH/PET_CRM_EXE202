@@ -21,6 +21,7 @@ describe('API contract', () => {
       expect(operations.length).toBeGreaterThanOrEqual(61);
       expect(document.paths['/health/live']?.get).toBeDefined();
       expect(document.paths['/health/ready']?.get).toBeDefined();
+      expect(document.paths['/auth/context']?.get).toBeDefined();
       expect(document.paths['/admin/reports/bookings']?.get).toBeDefined();
       expect(document.paths['/admin/reports/value']?.get).toBeDefined();
       expect(document.paths['/admin/reports/care']?.get).toBeDefined();

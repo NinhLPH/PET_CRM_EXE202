@@ -165,6 +165,8 @@ export class BookingWorkflowService {
       bookingDate: booking.bookingDate,
       scheduledEnd: booking.scheduledEnd,
       status: booking.status,
+      cancellationType: booking.cancellationType,
+      cancellationReason: booking.cancellationReason,
       version: booking.version,
       note: booking.note,
       estimatedTotal: booking.estimatedTotal,
@@ -181,6 +183,13 @@ export class BookingWorkflowService {
             surcharges: booking.surcharges.map((item) => ({
               name: item.surchargeName,
               amount: item.amount,
+            })),
+            adjustments: booking.adjustments.map((item) => ({
+              id: item.id,
+              delta: item.delta,
+              reason: item.reason,
+              reversalRef: item.reversalRef,
+              createdAt: item.createdAt,
             })),
           }
         : {}),
@@ -389,12 +398,19 @@ export class BookingWorkflowService {
   async adminList(query: {
     status?: BookingStatus;
     date?: string;
+    from?: string;
+    to?: string;
+    dateBasis?: 'bookingDate' | 'completedAt';
     page?: string;
     limit?: string;
   }) {
     const p = page(query);
     if (query.status && !Object.values(BookingStatus).includes(query.status))
       throw new BadRequestException('Trạng thái không hợp lệ');
+    if ((query.from && !query.to) || (!query.from && query.to) ||
+        (query.date && (query.from || query.to)) ||
+        (query.dateBasis && !['bookingDate','completedAt'].includes(query.dateBasis)))
+      throw new BadRequestException('Bộ lọc ngày không hợp lệ');
     let range: { gte: Date; lt: Date } | undefined;
     if (query.date) {
       if (
@@ -405,9 +421,15 @@ export class BookingWorkflowService {
       const start = new Date(`${query.date}T00:00:00+07:00`);
       range = { gte: start, lt: addLocalDays(start, 1) };
     }
+    if (query.from && query.to) {
+      if (![query.from,query.to].every(value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00+07:00`))) ||
+          query.from > query.to || Date.parse(`${query.to}T00:00:00+07:00`) - Date.parse(`${query.from}T00:00:00+07:00`) > 90*86400000)
+        throw new BadRequestException('Khoảng ngày tối đa 90 ngày');
+      range = { gte: new Date(`${query.from}T00:00:00+07:00`), lt: addLocalDays(new Date(`${query.to}T00:00:00+07:00`),1) };
+    }
     const where: Prisma.BookingWhereInput = {
       ...(query.status ? { status: query.status } : {}),
-      ...(range ? { bookingDate: range } : {}),
+      ...(range ? { [query.dateBasis === 'completedAt' ? 'completedAt' : 'bookingDate']: range } : {}),
     };
     const [items, total] = await Promise.all([
       this.db.booking.findMany({
@@ -889,6 +911,6 @@ export class BookingWorkflowService {
         },
       }),
     ]);
-    return { pending, confirmedToday, remindersDue };
+    return { pending, confirmedToday, remindersDue, asOf: new Date() };
   }
 }
