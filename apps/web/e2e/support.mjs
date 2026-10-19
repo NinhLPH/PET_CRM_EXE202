@@ -58,7 +58,15 @@ export async function submit(page, button, path, method = 'POST', status = 201) 
 }
 export function phone() { return `0${randomInt(100000000, 999999999)}`; }
 export const password = `Test_${randomUUID()}!`;
-export function future(offset = 0) { return new Date(Date.now() + 86400000 * 30 + offset * 60000).toISOString().slice(0, 16); }
+export function future(offset = 0) {
+  const local=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const day=new Date(`${local}T00:00:00Z`); day.setUTCDate(day.getUTCDate()+30);
+  let slot=offset;
+  while(day.getUTCDay()===0)day.setUTCDate(day.getUTCDate()+1);
+  while(slot>=16){slot-=16;day.setUTCDate(day.getUTCDate()+1);if(day.getUTCDay()===0)day.setUTCDate(day.getUTCDate()+1);}
+  const minute=slot<8 ? 8*60+slot*30 : 13*60+(slot-8)*30;
+  return `${day.toISOString().slice(0,10)}T${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
+}
 export async function newBooking(customer, petId, serviceId, price = 100000, offset = 0) {
   return remember('bookings', await call(customer, 'POST', '/bookings', { petId, serviceId, expectedBasePrice: price, bookingDate: future(offset) + ':00+07:00', note: runId }, 201, { 'Idempotency-Key': randomUUID() }));
 }

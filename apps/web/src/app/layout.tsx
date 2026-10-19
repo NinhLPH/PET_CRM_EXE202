@@ -1,13 +1,13 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { CalendarDays, ClipboardList, Heart, House, LogOut, Menu, PawPrint, Scissors, UserRound, Users, X, type LucideIcon } from 'lucide-react';
+import { CalendarDays, ClipboardList, Heart, House, LogOut, Menu, PawPrint, Scissors, UserRound, Users, X, ChartColumn, History, ListChecks, type LucideIcon } from 'lucide-react';
 import { adminNav, customerNav } from './features';
 import { useAuth } from './authContext';
 import { Notice } from './ui';
 import { errorText } from '../api/client';
 
 const customerIcons: LucideIcon[] = [House, PawPrint, Scissors, CalendarDays, UserRound];
-const adminIcons: LucideIcon[] = [House, Users, Scissors, ClipboardList, Heart];
+const adminIcons = [House, Users, Scissors, ClipboardList, Heart, CalendarDays, ChartColumn, History, ListChecks];
 
 export function Layout({ admin = false }: { admin?: boolean }) {
   const nav = admin ? adminNav : customerNav;

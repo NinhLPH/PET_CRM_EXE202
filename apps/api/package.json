@@ -23,9 +23,14 @@
     "test:debug": "node --inspect-brk --experimental-vm-modules -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "seed:admin": "node scripts/seed-admin.mjs",
+    "grant:identity-operator": "node scripts/grant-identity-operator.mjs",
     "seed:demo": "node --experimental-strip-types prisma/seed.ts",
     "migration:preflight": "node scripts/preflight-migration.mjs",
-    "migration:verify": "node scripts/verify-migrations.mjs"
+    "migration:verify": "node scripts/verify-migrations.mjs",
+    "readiness:summary": "node scripts/v2-readiness-summary.mjs",
+    "backfill:legacy": "node scripts/backfill-legacy-duration.mjs",
+    "schedule:pilot": "node scripts/configure-pilot-schedule.mjs",
+    "test:v2-concurrency": "node scripts/test-v2-concurrency.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

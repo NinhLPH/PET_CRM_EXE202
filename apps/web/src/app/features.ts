@@ -17,4 +17,8 @@ export const adminNav = [
   { to: '/admin/services', label: 'Dịch vụ' },
   { to: '/admin/bookings', label: 'Lịch hẹn' },
   { to: '/admin/reminders', label: 'Cần nhắc' },
+  { to: '/admin/settings/schedule', label: 'Giờ làm việc' },
+  { to: '/admin/reports', label: 'Báo cáo' },
+  { to: '/admin/audit', label: 'Nhật ký' },
+  { to: '/admin/readiness', label: 'Sẵn sàng' },
 ];

@@ -32,6 +32,7 @@ try {
       phone,
       passwordHash: `scrypt:${salt}:${hash.toString('hex')}`,
       role: 'ADMIN',
+      canVerifyIdentity: true,
     },
   });
   console.log(`Created ADMIN user ${user.id}`);

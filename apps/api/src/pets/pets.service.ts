@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Actor, id, page } from '../common/common';
+import { runResourceOperation } from '../common/resource-operation';
 import { PetDto, UpdatePetDto } from './dto/pets.dto';
 
 @Injectable()
@@ -36,11 +37,22 @@ export class PetsService {
     };
   }
 
-  async createPet(customerId: bigint, body: PetDto) {
-    if (!(await this.db.customer.findUnique({ where: { id: customerId } })))
-      throw new NotFoundException('Không tìm thấy khách hàng');
-    return this.db.pet.create({
-      data: { ...this.petData(body), name: body.name.trim(), species: body.species, weight: new Prisma.Decimal(body.weight), customerId },
+  async createPet(customerId: bigint, body: PetDto, actor?: Actor, key?: string) {
+    const data = this.petData(body);
+    return runResourceOperation(this.db, actor?.id, key, 'CREATE_PET', {
+      customerId: customerId.toString(), name: body.name.trim(), species: body.species,
+      weight: body.weight, breed: body.breed ?? null, allergyNote: body.allergyNote ?? null, specialNote: body.specialNote ?? null,
+    }, async (tx) => {
+      if (!(await tx.customer.findUnique({ where: { id: customerId } })))
+        throw new NotFoundException('Không tìm thấy khách hàng');
+      const result = await tx.pet.create({
+        data: { ...data, name: body.name.trim(), species: body.species, weight: new Prisma.Decimal(body.weight), customerId },
+      });
+      if (actor) await tx.auditEvent.create({ data: {
+        actorId: actor.id, action: 'CREATE_PET', objectType: 'PET', objectId: result.id.toString(),
+        change: { customerId: customerId.toString() },
+      } });
+      return result;
     });
   }
 

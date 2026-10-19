@@ -1,6 +1,6 @@
 import type {BookingInput} from '../api/types';
 
-export type PendingBooking = { key: string; customerId: string; body: BookingInput };
+export type PendingBooking = { key: string; customerId: string; body: BookingInput; createdAt?: number };
 const storageKey = 'petcare_pending_booking_v1';
 
 export function clearPendingBooking() {
@@ -15,6 +15,7 @@ export function readPendingBooking(): PendingBooking | null {
         const raw = sessionStorage.getItem(storageKey);
         if (!raw) return null;
         const value = JSON.parse(raw) as PendingBooking;
+        if (!value.createdAt || !Number.isFinite(value.createdAt)) { clearPendingBooking(); return null; }
         if (typeof value.key !== 'string' || !value.key || typeof value.customerId !== 'string' || !/^\d+$/.test(value.customerId)
             || typeof value.body?.petId !== 'string' || typeof value.body.serviceId !== 'string'
             || typeof value.body.bookingDate !== 'string' || !Number.isFinite(Date.parse(value.body.bookingDate))
@@ -32,7 +33,7 @@ export function readPendingBooking(): PendingBooking | null {
 
 export function writePendingBooking(value: PendingBooking) {
     try {
-        sessionStorage.setItem(storageKey, JSON.stringify(value));
+        sessionStorage.setItem(storageKey, JSON.stringify({ ...value, createdAt: Date.now() }));
     } catch {
         throw new Error('Không thể lưu yêu cầu trên trình duyệt. Vui lòng bật lưu trữ phiên rồi thử lại.');
     }

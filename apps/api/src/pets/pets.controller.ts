@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Admin, Customer, id } from '../common/common';
 import type { ActorRequest } from '../common/common';
@@ -13,7 +13,7 @@ export class PetsApiController {
   constructor(private readonly pets: PetsService) {}
   @Get('mine') mine(@Req() request: ActorRequest, @Query() query: { page?: string; limit?: string }) { return this.pets.petList(request.actor.customerId!, query); }
   @Get(':id') one(@Param('id') petId: string, @Req() request: ActorRequest) { return this.pets.pet(petId, request.actor); }
-  @Post() create(@Req() request: ActorRequest, @Body() body: PetDto) { return this.pets.createPet(request.actor.customerId!, body); }
+  @Post() create(@Req() request: ActorRequest, @Body() body: PetDto, @Headers('idempotency-key') key?: string) { return this.pets.createPet(request.actor.customerId!, body, request.actor, key); }
   @Patch(':id') update(@Param('id') petId: string, @Req() request: ActorRequest, @Body() body: UpdatePetDto) { return this.pets.updatePet(petId, request.actor, body); }
   @Delete(':id') remove(@Param('id') petId: string, @Req() request: ActorRequest) { return this.pets.deletePet(petId, request.actor); }
 }
@@ -35,5 +35,5 @@ export class AdminPetsApiController {
 export class AdminCustomerPetsApiController {
   constructor(private readonly petsService: PetsService) {}
   @Get(':id/pets') pets(@Param('id') customerId: string, @Query() query: { page?: string; limit?: string }) { return this.petsService.petList(id(customerId), query); }
-  @Post(':id/pets') addPet(@Param('id') customerId: string, @Body() body: PetDto) { return this.petsService.createPet(id(customerId), body); }
+  @Post(':id/pets') addPet(@Param('id') customerId: string, @Body() body: PetDto, @Req() request: ActorRequest, @Headers('idempotency-key') key?: string) { return this.petsService.createPet(id(customerId), body, request.actor, key); }
 }

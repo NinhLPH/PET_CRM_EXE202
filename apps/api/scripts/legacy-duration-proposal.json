@@ -1,0 +1,32 @@
+[
+  {
+    "bookingId": "2",
+    "durationMinutes": 90,
+    "reason": "Owner-approved pilot backfill using current service duration (2026-10-19)"
+  },
+  {
+    "bookingId": "6",
+    "durationMinutes": 50,
+    "reason": "Owner-approved pilot backfill using current service duration (2026-10-19)"
+  },
+  {
+    "bookingId": "10",
+    "durationMinutes": 120,
+    "reason": "Owner-approved pilot backfill using current service duration (2026-10-19)"
+  },
+  {
+    "bookingId": "14",
+    "durationMinutes": 90,
+    "reason": "Owner-approved pilot backfill using current service duration (2026-10-19)"
+  },
+  {
+    "bookingId": "18",
+    "durationMinutes": 50,
+    "reason": "Owner-approved pilot backfill using current service duration (2026-10-19)"
+  },
+  {
+    "bookingId": "22",
+    "durationMinutes": 120,
+    "reason": "Owner-approved pilot backfill using current service duration (2026-10-19)"
+  }
+]

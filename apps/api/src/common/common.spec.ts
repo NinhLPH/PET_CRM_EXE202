@@ -48,6 +48,7 @@ describe('session authorization', () => {
           userId: 2n,
           revokedAt: null,
           expiresAt: new Date('2030-01-01'),
+          lastSeenAt: new Date(),
           user: { status: 'ACTIVE', role: 'CUSTOMER', customer: { id: 3n } },
         }),
     },
@@ -70,5 +71,13 @@ describe('session authorization', () => {
       UnauthorizedException,
     );
     request.headers.cookie = saved;
+  });
+  it('rejects a session idle for more than one day', async () => {
+    db.userSession.findUnique.mockResolvedValueOnce({
+      id: 1n, userId: 2n, revokedAt: null, expiresAt: new Date('2030-01-01'),
+      lastSeenAt: new Date(Date.now() - 25 * 3600000),
+      user: { status: 'ACTIVE', role: 'CUSTOMER', customer: { id: 3n } },
+    });
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

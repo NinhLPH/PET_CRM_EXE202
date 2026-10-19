@@ -1,8 +1,9 @@
 import {useState, type FormEvent} from 'react';
-import {Link, useNavigate, useParams} from 'react-router-dom';
+import {Link, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {ArrowRight, CalendarDays, Cat, Dog, PawPrint} from 'lucide-react';
 import {api} from '../../api/endpoints';
+import {OperationBanner, useOperation} from '../../app/operations';
 import type {Pet, PetInput, Profile} from '../../api/types';
 import {
     Back,
@@ -126,16 +127,20 @@ export function CustomerPets() {
     const [page, setPage] = useState(1);
     const [adding, setAdding] = useState(false);
     const client = useQueryClient();
+    const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const createOp = useOperation('pet:create', key => api.pets.operation(key));
     const list = useQuery({queryKey: ['pets', 'mine', page], queryFn: ({signal}) => api.pets.mine(page, 20, signal)});
     const save = async (input: PetInput) => {
-        await api.pets.create(input);
+        const created = await createOp.execute(key => api.pets.create(input, key));
         await client.invalidateQueries({queryKey: ['pets']});
         setAdding(false);
         setPage(1);
+        if (params.get('returnTo') === '/app/bookings/new') navigate(`/app/bookings/new?petId=${created.id}`);
     };
     return <><Title
         action={<Button onClick={() => setAdding(!adding)}>{adding ? 'Đóng form' : 'Thêm thú cưng'}</Button>}>Thú
-        cưng</Title>{adding &&
+        cưng</Title><OperationBanner operation={createOp} onResolved={result=>{const pet=result.result as {id?:string};void client.invalidateQueries({queryKey:['pets']});if(pet.id&&params.get('returnTo')==='/app/bookings/new')navigate(`/app/bookings/new?petId=${pet.id}`);}}/>{adding && !createOp.active &&
         <Card className="mb-6 max-w-xl"><h2 className="text-xl mb-4">Thêm thú cưng</h2><PetForm onSave={save}
                                                                                                 onCancel={() => setAdding(false)}/></Card>}<QueryState
         loading={list.isLoading} error={list.error} retry={() => void list.refetch()}>{list.data?.items.length ?

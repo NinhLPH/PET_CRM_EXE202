@@ -12,21 +12,23 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { map } from 'rxjs';
 import { serialize } from './common/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import type { NextFunction, Request, Response } from 'express';
 
 @Catch()
 class ApiErrorFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
+    const request = host.switchToHttp().getRequest();
     const response = host.switchToHttp().getResponse();
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       ['P2002', 'P2003'].includes(error.code)
     ) {
-      response
-        .status(409)
-        .json({
-          code: 'CONFLICT',
-          message: 'Dữ liệu đã tồn tại hoặc đang được sử dụng',
-        });
+      response.status(409).json({
+        code: 'CONFLICT',
+        message: 'Dữ liệu đã tồn tại hoặc đang được sử dụng',
+        requestId: request.requestId,
+      });
       return;
     }
     const status = error instanceof HttpException ? error.getStatus() : 500;
@@ -38,20 +40,35 @@ class ApiErrorFilter implements ExceptionFilter {
       typeof detail === 'string'
         ? { message: detail }
         : (detail as Record<string, unknown>);
-    response
-      .status(status)
-      .json({
-        code:
-          status === 500 ? 'INTERNAL_ERROR' : (value.code ?? `HTTP_${status}`),
-        message: value.message ?? 'Request failed',
-        ...(value.currentQuote ? { currentQuote: value.currentQuote } : {}),
-        ...(value.errors ? { errors: value.errors } : {}),
-      });
+    response.status(status).json({
+      code:
+        status === 500 ? 'INTERNAL_ERROR' : (value.code ?? `HTTP_${status}`),
+      message: value.message ?? 'Request failed',
+      ...(value.currentQuote ? { currentQuote: value.currentQuote } : {}),
+      ...(value.errors ? { errors: value.errors } : {}),
+      ...(value.bookingIds ? { bookingIds: value.bookingIds } : {}),
+      requestId: request.requestId,
+    });
   }
 }
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
+  if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 3)
+    throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 3');
+  if (trustProxyHops) app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+  app.use(
+    (
+      request: Request & { requestId?: string },
+      response: Response,
+      next: NextFunction,
+    ) => {
+      request.requestId = randomUUID();
+      response.setHeader('X-Request-Id', request.requestId);
+      next();
+    },
+  );
   const allowed = (process.env.CORS_ORIGINS ?? '')
     .split(',')
     .map((x) => x.trim())
@@ -81,8 +98,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('TailUp CRM API v1')
-      .setVersion('1.0')
+      .setTitle('TailUp CRM API')
+      .setVersion('2.0')
       .addCookieAuth('petcare_session')
       .build(),
   );
