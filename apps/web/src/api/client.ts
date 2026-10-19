@@ -14,7 +14,10 @@ export class ApiError extends Error {
   }
 }
 
-const origin = (import.meta.env.VITE_API_ORIGIN || (import.meta.env.DEV ? 'http://localhost:3000' : '')).replace(/\/$/, '');
+const origin = (import.meta.env.VITE_API_ORIGIN ?? '').trim().replace(/\/+$/, '');
+if (!origin) {
+  throw new Error('Missing VITE_API_ORIGIN');
+}
 export const query = (values: Record<string, string | number | boolean | undefined | null>) => {
   const params = new URLSearchParams();
   Object.entries(values).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, String(value)); });
