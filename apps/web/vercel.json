@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://outage-finally-zap.ngrok-free.dev/:path*"
+      "destination": "https://tailup-api.onrender.com/:path*"
     },
     {
       "source": "/(.*)",

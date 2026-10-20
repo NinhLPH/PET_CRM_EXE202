@@ -35,8 +35,6 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
       credentials: 'include',
       headers: {
         Accept: 'application/json',
-        // Bypass ngrok's browser warning while forwarding API calls to local BE.
-        'ngrok-skip-browser-warning': '1',
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
       },
