@@ -10,6 +10,11 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "prisma:generate": "prisma generate --config prisma7.config.ts",
+    "db:migrate:deploy": "prisma migrate deploy --config prisma7.config.ts",
+    "db:migrate:status": "prisma migrate status --config prisma7.config.ts",
+    "build:render": "npm run prisma:generate && npm run build",
+    "start:render": "npm run db:migrate:deploy && npm run start:prod",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
